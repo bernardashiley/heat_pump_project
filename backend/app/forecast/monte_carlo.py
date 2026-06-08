@@ -1,9 +1,20 @@
+from pathlib import Path
+
 import numpy as np
 
-from app.models import ForecastRequest, ForecastResponse
+from app.forecast.climate import load_or_fetch_climate
+from app.forecast.cop import ETA_MAX, ETA_MIN, calculate_cop_curve, fit_eta_from_scop
+from app.forecast.cost import calculate_cost_by_scenario
+from app.forecast.demand import (
+    calculate_annual_dhw_demand,
+    calculate_daily_space_heating_demand,
+    derive_hlc_w_per_k,
+)
+from app.models import Assumptions, ForecastRequest, ForecastResponse, KwhPercentiles
 
 DEFAULT_DRAW_COUNT = 1000
 DEFAULT_RESIDUAL_SIGMA_FRACTION = 0.08
+DEFAULT_CACHE_DIR = Path("data/cache")
 
 
 def calculate_daily_electricity(
@@ -100,16 +111,103 @@ def generate_electricity_draws(
     return np.clip(sampled_winter_kwh + residual_noise_kwh, 0, None)
 
 
-def forecast_from_request(request: ForecastRequest) -> ForecastResponse:
+def _kwh_percentiles(draws_kwh: np.ndarray) -> KwhPercentiles:
+    p10_kwh, p50_kwh, p90_kwh = np.percentile(draws_kwh, [10, 50, 90])
+    return KwhPercentiles(
+        p10_kwh=float(p10_kwh),
+        p50_kwh=float(p50_kwh),
+        p90_kwh=float(p90_kwh),
+    )
+
+
+def forecast_from_request(
+    request: ForecastRequest,
+    cache_dir: Path = DEFAULT_CACHE_DIR,
+) -> ForecastResponse:
     """Run the full forecast pipeline for an API forecast request.
 
     Implements MODEL.md §6 — From demand to electricity.
 
     Inputs:
     - request: forecast request schema with property, heat pump, DHW, and tariffs.
+    - cache_dir: filesystem path where climate cache files are stored.
 
     Outputs:
     - forecast response schema with fitted eta, kWh percentiles, GBP percentiles,
       monthly kWh breakdown, 1000 annual kWh draws, assumptions, and warnings.
     """
-    raise NotImplementedError(f"monte_carlo.forecast_from_request — see MODEL.md §6")
+    warnings = []
+    climate = load_or_fetch_climate(request.property, cache_dir, winters=20)
+    t_out_c = climate["t_out_c"].to_numpy()
+    winter_index = climate["winter_id"].to_numpy()
+
+    hlc_w_per_k = derive_hlc_w_per_k(request.property)
+    daily_sh_kwh = calculate_daily_space_heating_demand(
+        t_out_c,
+        hlc_w_per_k,
+        request.property.t_base_c,
+    )
+    annual_dhw_kwh = calculate_annual_dhw_demand(request.dhw)
+    daily_dhw_kwh = np.full(len(climate), annual_dhw_kwh / 365)
+
+    eta, at_boundary = fit_eta_from_scop(
+        request.heat_pump.scop,
+        daily_sh_kwh,
+        t_out_c,
+        request.heat_pump.t_flow_sh_c,
+    )
+    if at_boundary:
+        warnings.append(
+            "fitted second-law efficiency hit boundary "
+            f"({ETA_MIN} or {ETA_MAX}); SCOP and flow temperature may be inconsistent"
+        )
+
+    cop_sh = calculate_cop_curve(t_out_c, request.heat_pump.t_flow_sh_c, eta)
+    cop_dhw = calculate_cop_curve(t_out_c, request.dhw.t_flow_dhw_c, eta)
+    e_sh, e_dhw, e_total = calculate_daily_electricity(
+        daily_sh_kwh,
+        daily_dhw_kwh,
+        cop_sh,
+        cop_dhw,
+    )
+
+    annual_sh_by_winter = calculate_annual_electricity_by_winter(e_sh, winter_index)
+    annual_dhw_by_winter = calculate_annual_electricity_by_winter(e_dhw, winter_index)
+    annual_total_by_winter = calculate_annual_electricity_by_winter(
+        e_total,
+        winter_index,
+    )
+
+    draws_sh = generate_electricity_draws(annual_sh_by_winter)
+    draws_dhw = generate_electricity_draws(annual_dhw_by_winter)
+    draws_total = generate_electricity_draws(annual_total_by_winter)
+
+    median_total = np.median(annual_total_by_winter)
+    median_winter_id = int(np.argmin(np.abs(annual_total_by_winter - median_total)))
+    median_winter = climate["winter_id"].to_numpy() == median_winter_id
+    monthly_breakdown = [0.0] * 12
+    for month in range(1, 13):
+        month_mask = median_winter & (climate["date"].dt.month.to_numpy() == month)
+        if np.any(month_mask):
+            monthly_breakdown[month - 1] = float(np.sum(e_total[month_mask]))
+
+    return ForecastResponse(
+        fitted_eta=eta,
+        space_heating=_kwh_percentiles(draws_sh),
+        dhw=_kwh_percentiles(draws_dhw),
+        total=_kwh_percentiles(draws_total),
+        cost_by_scenario=calculate_cost_by_scenario(
+            draws_total,
+            request.tariff_scenarios,
+        ),
+        monthly_breakdown_median_kwh=monthly_breakdown,
+        draws_kwh=draws_total.tolist(),
+        assumptions=Assumptions(
+            property=request.property,
+            heat_pump=request.heat_pump,
+            dhw=request.dhw,
+            tariff_scenarios=request.tariff_scenarios,
+            fitted_eta=eta,
+        ),
+        warnings=warnings,
+    )
