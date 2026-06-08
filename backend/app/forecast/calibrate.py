@@ -20,7 +20,32 @@ def aggregate_monthly_kwh(past_monthly_kwh: list[PastMonthlyKwh]) -> pd.DataFram
     Outputs:
     - pandas.DataFrame of annual realised electricity in kWh/year.
     """
-    raise NotImplementedError(f"calibrate.aggregate_monthly_kwh — see MODEL.md §8")
+    monthly = pd.DataFrame(
+        {
+            "year": [reading.year for reading in past_monthly_kwh],
+            "month": [reading.month for reading in past_monthly_kwh],
+            "kwh": [reading.kwh for reading in past_monthly_kwh],
+        }
+    )
+    complete_years = monthly.groupby("year")["month"].nunique()
+    complete_years = complete_years[complete_years == 12].index
+    annual = (
+        monthly[monthly["year"].isin(complete_years)]
+        .groupby("year", as_index=False)["kwh"]
+        .sum()
+        .rename(columns={"kwh": "realised_kwh"})
+        .sort_values("year")
+        .reset_index(drop=True)
+    )
+
+    if annual.empty:
+        raise ValueError(
+            "no complete years in past_monthly_kwh; at least one year with all 12 months is required"
+        )
+
+    annual["year"] = annual["year"].astype(int)
+    annual["realised_kwh"] = annual["realised_kwh"].astype(float)
+    return annual
 
 
 def calculate_pit_value(
@@ -38,7 +63,8 @@ def calculate_pit_value(
     Outputs:
     - PIT value as empirical CDF rank divided by draw count, dimensionless fraction.
     """
-    raise NotImplementedError(f"calibrate.calculate_pit_value — see MODEL.md §8")
+    predicted_draws_kwh = np.asarray(predicted_draws_kwh, dtype=float)
+    return float(np.sum(predicted_draws_kwh < realised_kwh) / len(predicted_draws_kwh))
 
 
 def calculate_calibration_metrics(
@@ -61,8 +87,24 @@ def calculate_calibration_metrics(
     - calibration response schema with MAE in kWh and GBP, 80% coverage as a fraction,
       PIT histogram bin fractions, and per-year results.
     """
-    raise NotImplementedError(
-        f"calibrate.calculate_calibration_metrics — see MODEL.md §8"
+    realised_kwh = np.array([result.realised_kwh for result in per_year_results])
+    predicted_p50_kwh = np.array([result.p50_kwh for result in per_year_results])
+    in_band = np.array([result.in_band for result in per_year_results], dtype=float)
+    pit_counts, _ = np.histogram(pit_values, bins=10, range=(0, 1))
+
+    return CalibrationResponse(
+        mae_kwh=float(np.mean(np.abs(realised_kwh - predicted_p50_kwh))),
+        mae_gbp=float(
+            np.mean(
+                np.abs(
+                    np.asarray(realised_costs_gbp, dtype=float)
+                    - np.asarray(predicted_median_costs_gbp, dtype=float)
+                )
+            )
+        ),
+        coverage_80_pct=float(np.mean(in_band)),
+        pit_bins=(pit_counts / len(pit_values)).astype(float).tolist(),
+        per_year_results=per_year_results,
     )
 
 
@@ -80,5 +122,5 @@ def run_walk_forward_backtest(request: CalibrationRequest) -> CalibrationRespons
       PIT histogram bin fractions, and per-year results.
     """
     raise NotImplementedError(
-        f"calibrate.run_walk_forward_backtest — see MODEL.md §8"
+        "calibrate.run_walk_forward_backtest depends on monte_carlo.forecast_from_request; implement orchestrator first"
     )
