@@ -1,4 +1,4 @@
-\# Heat Pump Running-Cost Forecaster
+# Heat Pump Running-Cost Forecaster
 
 
 
@@ -16,7 +16,7 @@ figure; this one returns a distribution and shows its working.
 
 
 
-\## Status
+## Status
 
 
 
@@ -24,15 +24,15 @@ Pre-MVP. Specification stage.
 
 
 
-\## Documents
+## Documents
 
 
 
-\- `docs/MODEL.md` — the mathematical model. Source of truth for the maths.
+- `docs/MODEL.md` — the mathematical model. Source of truth for the maths.
 
-\- `docs/BUILD.md` — the build specification. Source of truth for everything
+- `docs/BUILD.md` — the build specification. Source of truth for everything
 
-&#x20; else (stack, API, tests, what to build and what not to build).
+  else (stack, API, tests, what to build and what not to build).
 
 
 
@@ -40,41 +40,53 @@ Read both before contributing code.
 
 
 
-\## Stack
+## Stack
 
 
 
-\- Backend: Python 3.11+, FastAPI, numpy/scipy/pandas
+- Backend: Python 3.11+, FastAPI, numpy/scipy/pandas
 
-\- Frontend: Next.js 14, TypeScript, Tailwind, Recharts
+- Frontend: Next.js 14, TypeScript, Tailwind, Recharts
 
-\- Storage: SQLite (sessions only, 30-day auto-delete)
+- Storage: SQLite (sessions only, 30-day auto-delete)
 
-\- Deployment: Docker Compose
+- Deployment: Docker Compose
 
+## Local development
 
+Requires Python 3.12.
 
-\## Running locally
+Create the backend virtual environment:
 
-
-
-Once the code exists:
-
-
-
+```powershell
+py -3.12 -m venv backend\.venv
 ```
 
+Install the backend package:
+
+```powershell
+backend\.venv\Scripts\python.exe -m pip install -e backend
+```
+
+Run the backend server:
+
+```powershell
+backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --port 8000
+```
+
+The backend health check is available at `http://127.0.0.1:8000/healthz`.
+
+## Running with Docker
+
+```powershell
 docker compose up
-
 ```
-
-
 
 Backend on `:8000`, frontend on `:3000`.
 
 
 
-\## Tests
+## Tests
 
 
 
@@ -96,7 +108,7 @@ considered done.
 
 
 
-\## Licence
+## Licence
 
 
 

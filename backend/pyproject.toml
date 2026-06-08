@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools==75.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heat-pump-forecaster-backend"
+version = "0.1.0"
+description = "FastAPI backend for the heat pump running-cost forecaster."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "numpy==2.2.1",
+    "scipy==1.14.1",
+    "pandas==2.2.3",
+    "SQLAlchemy==2.0.36",
+    "pydantic==2.10.4",
+    "httpx==0.28.1",
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
