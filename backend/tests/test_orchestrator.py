@@ -57,6 +57,7 @@ def _mock_open_meteo(router: respx.MockRouter) -> respx.Route:
 def _forecast_request(
     scop: float = 3.9,
     t_flow_sh_c: float = 45,
+    defrost_penalty_peak_pct: float = 0,
     tariffs: list[TariffScenarioInput] | None = None,
 ) -> ForecastRequest:
     if tariffs is None:
@@ -81,6 +82,7 @@ def _forecast_request(
             scop=scop,
             t_flow_sh_c=t_flow_sh_c,
             t_design_outdoor_c=-2,
+            defrost_penalty_peak_pct=defrost_penalty_peak_pct,
         ),
         dhw=DhwInput(
             occupants=3,
@@ -226,3 +228,27 @@ def test_orchestrator_monthly_breakdown_winter_months_nonzero(
     assert all(value > 0 for value in response.monthly_breakdown_median_kwh[0:3])
     assert all(value == 0 for value in response.monthly_breakdown_median_kwh[3:9])
     assert all(value > 0 for value in response.monthly_breakdown_median_kwh[9:12])
+
+
+def test_orchestrator_with_defrost_penalty_raises_electricity(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+
+    unpenalised = forecast_from_request(
+        _forecast_request(scop=5.0, defrost_penalty_peak_pct=0),
+        cache_dir=tmp_path,
+    )
+    penalised = forecast_from_request(
+        _forecast_request(scop=5.0, defrost_penalty_peak_pct=0.12),
+        cache_dir=tmp_path,
+    )
+
+    increase_fraction = (
+        (penalised.total.p50_kwh - unpenalised.total.p50_kwh)
+        / unpenalised.total.p50_kwh
+    )
+
+    assert penalised.total.p50_kwh > unpenalised.total.p50_kwh
+    assert 0.04 <= increase_fraction <= 0.15

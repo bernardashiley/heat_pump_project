@@ -155,6 +155,7 @@ def forecast_from_request(
         daily_sh_kwh,
         t_out_c,
         request.heat_pump.t_flow_sh_c,
+        request.heat_pump.defrost_penalty_peak_pct,
     )
     if at_boundary:
         warnings.append(
@@ -162,8 +163,18 @@ def forecast_from_request(
             f"({ETA_MIN} or {ETA_MAX}); SCOP and flow temperature may be inconsistent"
         )
 
-    cop_sh = calculate_cop_curve(t_out_c, request.heat_pump.t_flow_sh_c, eta)
-    cop_dhw = calculate_cop_curve(t_out_c, request.dhw.t_flow_dhw_c, eta)
+    cop_sh = calculate_cop_curve(
+        t_out_c,
+        request.heat_pump.t_flow_sh_c,
+        eta,
+        request.heat_pump.defrost_penalty_peak_pct,
+    )
+    cop_dhw = calculate_cop_curve(
+        t_out_c,
+        request.dhw.t_flow_dhw_c,
+        eta,
+        request.heat_pump.defrost_penalty_peak_pct,
+    )
     e_sh, e_dhw, e_total = calculate_daily_electricity(
         daily_sh_kwh,
         daily_dhw_kwh,

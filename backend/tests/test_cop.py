@@ -6,6 +6,7 @@ from app.forecast.cop import (
     ETA_MIN,
     calculate_cop_curve,
     carnot_cop,
+    defrost_penalty,
     fit_eta_from_scop,
 )
 from app.forecast.demand import calculate_daily_space_heating_demand
@@ -201,3 +202,93 @@ def test_fit_eta_ignores_zero_demand_days() -> None:
     )
 
     assert eta_with_zeros == pytest.approx(eta_without_zeros, abs=1e-12)
+
+
+def test_defrost_penalty_zero_default_preserves_existing_cop() -> None:
+    t_out_c = np.arange(-10, 16, 1)
+    eta = 0.5
+
+    cop = calculate_cop_curve(
+        t_out_c=t_out_c,
+        t_flow_c=45,
+        eta=eta,
+        defrost_penalty_peak_pct=0,
+    )
+
+    assert np.all(cop == pytest.approx(eta * carnot_cop(t_out_c, 45)))
+
+
+def test_defrost_penalty_reduces_cop_in_dip_zone() -> None:
+    t_out_c = np.array([2.0, 10.0])
+    unpenalised = calculate_cop_curve(t_out_c=t_out_c, t_flow_c=45, eta=0.5)
+    penalised = calculate_cop_curve(
+        t_out_c=t_out_c,
+        t_flow_c=45,
+        eta=0.5,
+        defrost_penalty_peak_pct=0.12,
+    )
+    relative_loss = 1 - (penalised / unpenalised)
+
+    assert relative_loss[0] == pytest.approx(0.12)
+    assert relative_loss[1] < 0.01
+
+
+def test_defrost_penalty_vanishes_above_8c() -> None:
+    penalty = defrost_penalty(np.array([10.0]), peak=0.20)
+
+    assert penalty[0] < 0.20 * 0.01
+
+
+def test_defrost_penalty_vanishes_below_minus10c() -> None:
+    penalty = defrost_penalty(np.array([-15.0]), peak=0.20)
+
+    assert penalty[0] < 0.20 * 0.01
+
+
+def test_cop_floor_at_unity() -> None:
+    cop = calculate_cop_curve(
+        t_out_c=np.array([-5.0, 2.0, 5.0]),
+        t_flow_c=45,
+        eta=0.30,
+        defrost_penalty_peak_pct=0.30,
+    )
+
+    assert np.all(cop >= 1.0)
+
+
+def test_defrost_penalty_changes_fitted_eta_consistently() -> None:
+    t_out_c = np.linspace(-5, 8, 90)
+    daily_demand_kwh = calculate_daily_space_heating_demand(
+        t_out_c=t_out_c,
+        hlc_w_per_k=200,
+        t_base_c=15.5,
+    )
+
+    eta_zero, _ = fit_eta_from_scop(
+        scop=3.0,
+        daily_space_heating_kwh=daily_demand_kwh,
+        t_out_c=t_out_c,
+        t_flow_sh_c=45,
+        defrost_penalty_peak_pct=0,
+    )
+    eta_penalty, _ = fit_eta_from_scop(
+        scop=3.0,
+        daily_space_heating_kwh=daily_demand_kwh,
+        t_out_c=t_out_c,
+        t_flow_sh_c=45,
+        defrost_penalty_peak_pct=0.12,
+    )
+
+    assert eta_penalty > eta_zero
+
+
+def test_defrost_penalty_function_unit_test() -> None:
+    t_out_c = np.arange(-15, 16, 1)
+
+    penalty = defrost_penalty(t_out_c, peak=0.12)
+
+    assert penalty.shape == t_out_c.shape
+    assert np.max(penalty) == pytest.approx(0.12)
+    assert t_out_c[np.argmax(penalty)] == 2
+    assert penalty[t_out_c == 10][0] < 0.001
+    assert penalty[t_out_c == -15][0] < 0.001

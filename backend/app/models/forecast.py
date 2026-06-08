@@ -27,6 +27,17 @@ class HeatPumpInput(BaseModel):
     scop: float = Field(gt=0)
     t_flow_sh_c: float
     t_design_outdoor_c: float
+    defrost_penalty_peak_pct: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=0.30,
+        description=(
+            "Peak defrost penalty as a fraction of COP, applied as a Gaussian bump "
+            "centred at 2 C with 3 C width. Sensible values: 0.12 for typical UK "
+            "fixed-speed ASHP, 0.06 for modern vapour-injection units, 0.0 to "
+            "disable. Default 0.0 preserves the v1 pure-Carnot model."
+        ),
+    )
 
     @model_validator(mode="after")
     def require_flow_above_design_outdoor(self) -> "HeatPumpInput":
