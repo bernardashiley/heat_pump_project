@@ -2,6 +2,9 @@ import numpy as np
 
 from app.models import ForecastRequest, ForecastResponse
 
+DEFAULT_DRAW_COUNT = 1000
+DEFAULT_RESIDUAL_SIGMA_FRACTION = 0.08
+
 
 def calculate_daily_electricity(
     daily_space_heating_kwh: np.ndarray,
@@ -22,9 +25,21 @@ def calculate_daily_electricity(
     Outputs:
     - tuple of daily space-heating, DHW, and total electricity in kWh/day.
     """
-    raise NotImplementedError(
-        f"monte_carlo.calculate_daily_electricity — see MODEL.md §6.1"
+    daily_space_heating_kwh = np.asarray(daily_space_heating_kwh, dtype=float)
+    daily_dhw_kwh = np.asarray(daily_dhw_kwh, dtype=float)
+    space_heating_cop = np.asarray(space_heating_cop, dtype=float)
+    dhw_cop = np.asarray(dhw_cop, dtype=float)
+
+    zero_space_heating_demand = daily_space_heating_kwh == 0
+    safe_space_heating_cop = np.where(zero_space_heating_demand, 1.0, space_heating_cop)
+    electricity_sh_kwh = np.where(
+        zero_space_heating_demand,
+        0.0,
+        daily_space_heating_kwh / safe_space_heating_cop,
     )
+    electricity_dhw_kwh = daily_dhw_kwh / dhw_cop
+    electricity_total_kwh = electricity_sh_kwh + electricity_dhw_kwh
+    return electricity_sh_kwh, electricity_dhw_kwh, electricity_total_kwh
 
 
 def calculate_annual_electricity_by_winter(
@@ -40,17 +55,16 @@ def calculate_annual_electricity_by_winter(
     - winter_index: winter realisation identifier for each daily value, count labels.
 
     Outputs:
-    - annual electricity totals by winter realisation in kWh/year.
+    - annual electricity totals by winter realisation in kWh/year, with output
+      length equal to winter_index.max() + 1.
     """
-    raise NotImplementedError(
-        f"monte_carlo.calculate_annual_electricity_by_winter — see MODEL.md §6.1"
-    )
+    return np.bincount(winter_index, weights=daily_total_electricity_kwh)
 
 
 def generate_electricity_draws(
     annual_electricity_by_winter_kwh: np.ndarray,
-    draw_count: int = 1000,
-    residual_sigma_fraction: float = 0.08,
+    draw_count: int = DEFAULT_DRAW_COUNT,
+    residual_sigma_fraction: float = DEFAULT_RESIDUAL_SIGMA_FRACTION,
     random_seed: int | None = None,
 ) -> np.ndarray:
     """Generate Monte Carlo annual electricity draws from weather and residual noise.
@@ -66,9 +80,24 @@ def generate_electricity_draws(
     Outputs:
     - Monte Carlo annual electricity draws in kWh/year.
     """
-    raise NotImplementedError(
-        f"monte_carlo.generate_electricity_draws — see MODEL.md §6.2"
+    annual_electricity_by_winter_kwh = np.asarray(
+        annual_electricity_by_winter_kwh,
+        dtype=float,
     )
+    rng = np.random.default_rng(random_seed)
+    sampled_winter_index = rng.integers(
+        0,
+        len(annual_electricity_by_winter_kwh),
+        size=draw_count,
+    )
+    sampled_winter_kwh = annual_electricity_by_winter_kwh[sampled_winter_index]
+    residual_sigma_kwh = residual_sigma_fraction * sampled_winter_kwh
+    residual_noise_kwh = rng.normal(
+        loc=0.0,
+        scale=residual_sigma_kwh,
+        size=draw_count,
+    )
+    return np.clip(sampled_winter_kwh + residual_noise_kwh, 0, None)
 
 
 def forecast_from_request(request: ForecastRequest) -> ForecastResponse:
