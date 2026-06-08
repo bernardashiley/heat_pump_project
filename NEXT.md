@@ -1,32 +1,36 @@
-Next: implement forecast\_from\_request in monte\_carlo.py.
+Backend complete. /api/forecast serves real calibrated forecasts.
+
+13 commits, 76 tests passing.
 
 
 
-This is the orchestrator that wires:
-
-&#x20; climate.load\_or\_fetch\_climate → demand.calculate\_daily\_space\_heating\_demand
-
-&#x20; → demand.calculate\_annual\_dhw\_demand → demand.distribute\_daily\_dhw\_demand
-
-&#x20; → cop.fit\_eta\_from\_scop → cop.calculate\_cop\_curve
-
-&#x20; → monte\_carlo.calculate\_daily\_electricity → calculate\_annual\_electricity\_by\_winter
-
-&#x20; → generate\_electricity\_draws → cost.calculate\_cost\_by\_scenario
-
-&#x20; → returns ForecastResponse.
+Remaining work, in order:
 
 
 
-After that: implement run\_walk\_forward\_backtest in calibrate.py (now possible
+1\. Wire run\_walk\_forward\_backtest in calibrate.py to call
 
-since forecast\_from\_request will exist).
+&#x20;  forecast\_from\_request iteratively (now possible since orchestrator exists).
 
-
-
-After that: BUILD.md reference cases — Trip2nd fixture and Twentyman benchmark.
+&#x20;  Then wire /api/calibrate in main.py to call it.
 
 
 
-After that: frontend.
+2\. BUILD.md reference cases — Trip2nd fixture and Twentyman benchmark.
+
+&#x20;  These run real-world data through the engine and assert sanity.
+
+&#x20;  This is the moment the engine stops being code and starts being a tool.
+
+
+
+3\. Frontend: Next.js form, fan chart, calibration page.
+
+
+
+4\. Docker compose, deployment.
+
+
+
+5\. NEXT.md retired — project moves to GitHub issues.
 
