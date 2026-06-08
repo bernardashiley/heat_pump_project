@@ -64,29 +64,31 @@ v2 modelling backlog (deferred pending reference cases):
 
 
 
-\- Flow-temperature/defrost coupling. Higher flow temp → more frost.
+\- Flow-temperature/defrost coupling. Higher flow temp implies more
 
-&#x20; Currently absorbed into η. v2 could split this for more accurate
+&#x20; frost. Currently absorbed into eta. v2 could split this for more
 
-&#x20; monthly breakdown at high flow temperatures.
+&#x20; accurate monthly breakdown at high flow temperatures.
 
 
 
 \- SCOP-constraint interaction. The defrost penalty currently
 
-&#x20; redistributes electricity across temperature bins but doesn't change
+&#x20; redistributes electricity across temperature bins but does not
 
-&#x20; the annual total (SCOP is fixed). When reference cases arrive, check
+&#x20; change the annual total (SCOP is fixed). When reference cases
 
-&#x20; whether measured annual totals match SCOP-constrained predictions
+&#x20; arrive, check whether measured annual totals match SCOP-constrained
 
-&#x20; or whether real SCOP figures systematically over/under-state energy.
+&#x20; predictions or whether real SCOP figures systematically over- or
 
-&#x20; This would tell us whether to relax the SCOP constraint.
+&#x20; under-state energy. This would tell us whether to relax the SCOP
+
+&#x20; constraint.
 
 
 
-\- Defrost penalty's biggest practical effect is on units where η
+\- Defrost penalty's biggest practical effect is on units where eta
 
 &#x20; clamps at ETA\_MAX (very high SCOP). User-facing copy should explain
 
