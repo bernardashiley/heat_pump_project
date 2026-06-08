@@ -44,3 +44,53 @@ After that: frontend (Next.js form, fan chart, calibration page),
 
 then Docker compose, then ICO registration, then deploy.
 
+
+
+
+
+v2 modelling backlog (deferred pending reference cases):
+
+
+
+\- Humidity-conditional defrost penalty per Zhu et al. 2015 frosting
+
+&#x20; map. Requires (a) Open-Meteo humidity field in climate.py cache,
+
+&#x20; (b) frosting-zone severity model, (c) reference cases across UK
+
+&#x20; humidity bands to constrain parameters. Identifiability constraint:
+
+&#x20; do not add this until N >= 10 reference cases exist.
+
+
+
+\- Flow-temperature/defrost coupling. Higher flow temp → more frost.
+
+&#x20; Currently absorbed into η. v2 could split this for more accurate
+
+&#x20; monthly breakdown at high flow temperatures.
+
+
+
+\- SCOP-constraint interaction. The defrost penalty currently
+
+&#x20; redistributes electricity across temperature bins but doesn't change
+
+&#x20; the annual total (SCOP is fixed). When reference cases arrive, check
+
+&#x20; whether measured annual totals match SCOP-constrained predictions
+
+&#x20; or whether real SCOP figures systematically over/under-state energy.
+
+&#x20; This would tell us whether to relax the SCOP constraint.
+
+
+
+\- Defrost penalty's biggest practical effect is on units where η
+
+&#x20; clamps at ETA\_MAX (very high SCOP). User-facing copy should explain
+
+&#x20; when the eta-boundary warning means the defrost penalty is
+
+&#x20; materially affecting the forecast.
+
