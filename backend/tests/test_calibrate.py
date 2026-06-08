@@ -1,6 +1,10 @@
+from pathlib import Path
+
+import httpx
 import numpy as np
 import pandas as pd
 import pytest
+import respx
 
 from app.forecast.calibrate import (
     aggregate_monthly_kwh,
@@ -10,6 +14,7 @@ from app.forecast.calibrate import (
 )
 from app.models import (
     CalibrationRequest,
+    CalibrationResponse,
     CalibrationYearResult,
     DhwInput,
     HeatPumpInput,
@@ -24,6 +29,36 @@ def _monthly_readings(year: int, values: list[float]) -> list[PastMonthlyKwh]:
         PastMonthlyKwh(year=year, month=month, kwh=kwh)
         for month, kwh in enumerate(values, start=1)
     ]
+
+
+def _open_meteo_payload() -> dict[str, dict[str, list]]:
+    dates = pd.date_range("2006-10-01", "2026-03-31", freq="D")
+    winter_dates = dates[dates.month.isin({1, 2, 3, 10, 11, 12})]
+    temperatures = []
+    for index, date in enumerate(winter_dates):
+        seasonal = 5.0 + 4.0 * np.sin(index / 29.0)
+        if date.month in {1, 2}:
+            seasonal -= 3.0
+        temperatures.append(float(seasonal))
+
+    return {
+        "daily": {
+            "time": [date.strftime("%Y-%m-%d") for date in winter_dates],
+            "temperature_2m_mean": temperatures,
+        }
+    }
+
+
+def _mock_apis(router: respx.MockRouter) -> None:
+    router.get(host="api.postcodes.io").mock(
+        return_value=httpx.Response(
+            200,
+            json={"result": {"latitude": 51.75, "longitude": -1.25}},
+        )
+    )
+    router.get(host="archive-api.open-meteo.com").mock(
+        return_value=httpx.Response(200, json=_open_meteo_payload())
+    )
 
 
 def _year_result(
@@ -42,7 +77,12 @@ def _year_result(
     )
 
 
-def _calibration_request() -> CalibrationRequest:
+def _calibration_request(
+    past_monthly_kwh: list[PastMonthlyKwh] | None = None,
+) -> CalibrationRequest:
+    if past_monthly_kwh is None:
+        past_monthly_kwh = _monthly_readings(2024, [250] * 12)
+
     return CalibrationRequest(
         property=PropertyInput(
             floor_area_m2=95,
@@ -71,7 +111,7 @@ def _calibration_request() -> CalibrationRequest:
                 unit_rate_p_per_kwh=27,
             )
         ],
-        past_monthly_kwh=[PastMonthlyKwh(year=2024, month=1, kwh=100)],
+        past_monthly_kwh=past_monthly_kwh,
     )
 
 
@@ -193,6 +233,56 @@ def test_metrics_pit_histogram_uniform_input_is_flat() -> None:
     assert all(0.09 <= pit_bin <= 0.11 for pit_bin in response.pit_bins)
 
 
-def test_walk_forward_raises_not_implemented() -> None:
-    with pytest.raises(NotImplementedError, match="orchestrator|monte_carlo"):
-        run_walk_forward_backtest(_calibration_request())
+def test_walk_forward_returns_response_for_single_complete_year(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+
+    response = run_walk_forward_backtest(_calibration_request(), cache_dir=tmp_path)
+
+    assert isinstance(response, CalibrationResponse)
+    assert len(response.per_year_results) == 1
+    assert response.per_year_results[0].year == 2024
+    assert len(response.pit_bins) == 10
+    assert sum(response.pit_bins) == pytest.approx(1.0)
+    assert 0 <= response.coverage_80_pct <= 1
+
+
+def test_walk_forward_handles_two_years(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    readings = _monthly_readings(2023, [240] * 12)
+    readings.extend(_monthly_readings(2024, [260] * 12))
+
+    response = run_walk_forward_backtest(
+        _calibration_request(readings),
+        cache_dir=tmp_path,
+    )
+
+    assert len(response.per_year_results) == 2
+    assert [result.year for result in response.per_year_results] == [2023, 2024]
+
+
+def test_walk_forward_in_band_logic(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    probe = run_walk_forward_backtest(_calibration_request(), cache_dir=tmp_path)
+    p50_kwh = probe.per_year_results[0].p50_kwh
+    p90_kwh = probe.per_year_results[0].p90_kwh
+
+    inside_response = run_walk_forward_backtest(
+        _calibration_request(_monthly_readings(2024, [p50_kwh / 12] * 12)),
+        cache_dir=tmp_path,
+    )
+    outside_response = run_walk_forward_backtest(
+        _calibration_request(_monthly_readings(2024, [(p90_kwh * 10) / 12] * 12)),
+        cache_dir=tmp_path,
+    )
+
+    assert inside_response.per_year_results[0].in_band is True
+    assert outside_response.per_year_results[0].in_band is False

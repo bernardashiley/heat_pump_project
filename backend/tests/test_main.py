@@ -71,6 +71,15 @@ def _forecast_request_json() -> dict:
     }
 
 
+def _calibration_request_json() -> dict:
+    request = _forecast_request_json()
+    request["past_monthly_kwh"] = [
+        {"year": 2024, "month": month, "kwh": 250}
+        for month in range(1, 13)
+    ]
+    return request
+
+
 def test_forecast_endpoint_returns_real_response_via_orchestrator(
     tmp_path: Path,
     monkeypatch,
@@ -88,6 +97,23 @@ def test_forecast_endpoint_returns_real_response_via_orchestrator(
     assert len(payload["draws_kwh"]) == 1000
     assert payload["total"]["p10_kwh"] > 0
     assert payload["cost_by_scenario"][0]["p50_gbp"] > 0
+
+
+def test_calibrate_endpoint_returns_real_response(
+    tmp_path: Path,
+    monkeypatch,
+    respx_mock: respx.MockRouter,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _mock_apis(respx_mock)
+    client = TestClient(app)
+
+    response = client.post("/api/calibrate", json=_calibration_request_json())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["pit_bins"]) == 10
+    assert payload["mae_kwh"] >= 0
 
 
 def test_healthz_returns_ok() -> None:

@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.forecast.calibrate import run_walk_forward_backtest
 from app.forecast.monte_carlo import forecast_from_request
 from app.models import (
     CalibrationRequest,
     CalibrationResponse,
-    CalibrationYearResult,
     ForecastRequest,
     ForecastResponse,
 )
@@ -33,19 +33,4 @@ def forecast(request: ForecastRequest) -> ForecastResponse:
 
 @app.post("/api/calibrate", response_model=CalibrationResponse)
 def calibrate(request: CalibrationRequest) -> CalibrationResponse:
-    return CalibrationResponse(
-        mae_kwh=0,
-        mae_gbp=0,
-        coverage_80_pct=0,
-        pit_bins=[0] * 10,
-        per_year_results=[
-            CalibrationYearResult(
-                year=request.past_monthly_kwh[0].year,
-                realised_kwh=0,
-                p10_kwh=0,
-                p50_kwh=0,
-                p90_kwh=0,
-                in_band=True,
-            )
-        ],
-    )
+    return run_walk_forward_backtest(request)
