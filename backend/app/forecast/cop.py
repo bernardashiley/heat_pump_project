@@ -1,5 +1,9 @@
 import numpy as np
 
+KELVIN_OFFSET_C = 273.15
+ETA_MIN = 0.30
+ETA_MAX = 0.65
+
 
 def carnot_cop(
     t_out_c: np.ndarray,
@@ -16,7 +20,17 @@ def carnot_cop(
     Outputs:
     - theoretical maximum COP, dimensionless.
     """
-    raise NotImplementedError(f"cop.carnot_cop — see MODEL.md §5.1")
+    t_out_c = np.asarray(t_out_c, dtype=float)
+    if np.any(t_flow_c <= t_out_c):
+        offending_values = t_out_c[t_flow_c <= t_out_c]
+        raise ValueError(
+            "t_flow_c must be greater than every t_out_c value; "
+            f"t_flow_c={t_flow_c}, offending t_out_c={offending_values.tolist()}"
+        )
+
+    t_out_k = t_out_c + KELVIN_OFFSET_C
+    t_flow_k = t_flow_c + KELVIN_OFFSET_C
+    return t_flow_k / (t_flow_k - t_out_k)
 
 
 def calculate_cop_curve(
@@ -36,7 +50,9 @@ def calculate_cop_curve(
     Outputs:
     - real heat-pump COP values, dimensionless.
     """
-    raise NotImplementedError(f"cop.calculate_cop_curve — see MODEL.md §5.1")
+    if eta <= 0 or eta > 1:
+        raise ValueError(f"eta must be > 0 and <= 1; eta={eta}")
+    return eta * carnot_cop(t_out_c, t_flow_c)
 
 
 def fit_eta_from_scop(
@@ -44,7 +60,7 @@ def fit_eta_from_scop(
     daily_space_heating_kwh: np.ndarray,
     t_out_c: np.ndarray,
     t_flow_sh_c: float,
-) -> float:
+) -> tuple[float, bool]:
     """Fit second-law efficiency so the demand-weighted COP curve reproduces SCOP.
 
     Implements MODEL.md §5.2 — Fitting η from SCOP.
@@ -56,6 +72,19 @@ def fit_eta_from_scop(
     - t_flow_sh_c: space-heating flow temperature in °C.
 
     Outputs:
-    - fitted second-law efficiency eta, dimensionless fraction.
+    - fitted second-law efficiency eta, dimensionless fraction, and boundary flag.
     """
-    raise NotImplementedError(f"cop.fit_eta_from_scop — see MODEL.md §5.2")
+    daily_space_heating_kwh = np.asarray(daily_space_heating_kwh, dtype=float)
+    t_out_c = np.asarray(t_out_c, dtype=float)
+
+    non_zero_demand = daily_space_heating_kwh != 0
+    demand_kwh = daily_space_heating_kwh[non_zero_demand]
+    t_out_with_demand_c = t_out_c[non_zero_demand]
+    if demand_kwh.size == 0:
+        raise ValueError("daily_space_heating_kwh must contain at least one non-zero day")
+
+    carnot = carnot_cop(t_out_with_demand_c, t_flow_sh_c)
+    eta_unclamped = scop * np.sum(demand_kwh / carnot) / np.sum(demand_kwh)
+    at_boundary = eta_unclamped < ETA_MIN or eta_unclamped > ETA_MAX
+    eta = np.clip(eta_unclamped, ETA_MIN, ETA_MAX)
+    return float(eta), bool(at_boundary)
