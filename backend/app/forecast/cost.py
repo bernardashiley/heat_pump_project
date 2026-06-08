@@ -2,6 +2,9 @@ import numpy as np
 
 from app.models import CostScenarioPercentiles, TariffScenarioInput
 
+PENCE_PER_POUND = 100
+DAYS_PER_YEAR = 365
+
 
 def apply_tariff_to_draws(
     draws_kwh: np.ndarray,
@@ -19,7 +22,14 @@ def apply_tariff_to_draws(
     Outputs:
     - annual running-cost draws in GBP/year.
     """
-    raise NotImplementedError(f"cost.apply_tariff_to_draws — see MODEL.md §6.3")
+    draws_kwh = np.asarray(draws_kwh, dtype=float)
+    consumption_cost_gbp = (
+        draws_kwh * tariff.unit_rate_p_per_kwh / PENCE_PER_POUND
+    )
+    standing_charge_gbp = (
+        DAYS_PER_YEAR * tariff.standing_charge_p_per_day / PENCE_PER_POUND
+    )
+    return consumption_cost_gbp + standing_charge_gbp
 
 
 def summarise_cost_percentiles(
@@ -37,7 +47,13 @@ def summarise_cost_percentiles(
     Outputs:
     - cost percentile schema with p10_gbp, p50_gbp, and p90_gbp in GBP/year.
     """
-    raise NotImplementedError(f"cost.summarise_cost_percentiles — see MODEL.md §6.3")
+    p10_gbp, p50_gbp, p90_gbp = np.percentile(costs_gbp, [10, 50, 90])
+    return CostScenarioPercentiles(
+        name=name,
+        p10_gbp=float(p10_gbp),
+        p50_gbp=float(p50_gbp),
+        p90_gbp=float(p90_gbp),
+    )
 
 
 def calculate_cost_by_scenario(
@@ -55,4 +71,8 @@ def calculate_cost_by_scenario(
     Outputs:
     - list of cost percentile schemas with annual costs in GBP/year.
     """
-    raise NotImplementedError(f"cost.calculate_cost_by_scenario — see MODEL.md §6.3")
+    results = []
+    for tariff in tariffs:
+        costs_gbp = apply_tariff_to_draws(draws_kwh, tariff)
+        results.append(summarise_cost_percentiles(tariff.name, costs_gbp))
+    return results
