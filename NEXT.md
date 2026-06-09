@@ -96,3 +96,12 @@ v2 modelling backlog (deferred pending reference cases):
 
 &#x20; materially affecting the forecast.
 
+
+Development environment notes:
+
+- Python's local SSL trust store on this Windows machine rejects
+  postcodes.io's certificate. Diagnostic workaround used in past
+  sessions: httpx.Client(verify=False). DO NOT bake this into
+  production code. Fix the trust store instead: `pip install
+  --upgrade certifi` and verify Python uses it
+  (python -c "import certifi; print(certifi.where())").

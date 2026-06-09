@@ -1,0 +1,40 @@
+{
+  "description": "Trip2nd Reddit quote-check reference case: 64 m2 2012 three-floor Yorkshire new build, EPC B, quoted Grant Aerona 290 4 kW ASHP, 150 L cylinder, 1.79 kW total heat loss, SCOP 3.9, and 50 C flow at -1.9 C design outdoor temperature.",
+  "source": "Reddit r/ukheatpumps post by Trip2nd, 'Quote Check for New Install', provided by the project owner.",
+  "forecast_request": {
+    "property": {
+      "floor_area_m2": 64,
+      "hlc_w_per_k": null,
+      "heat_loss_design_w": 1790,
+      "t_design_outdoor_c": -1.9,
+      "t_internal_c": 21,
+      "t_base_c": 15.5,
+      "postcode": "YO1 7HH"
+    },
+    "heat_pump": {
+      "scop": 3.9,
+      "t_flow_sh_c": 50,
+      "t_design_outdoor_c": -1.9,
+      "defrost_penalty_peak_pct": 0
+    },
+    "dhw": {
+      "occupants": 3,
+      "cylinder_l": 150,
+      "t_setpoint_c": 48,
+      "t_flow_dhw_c": 52
+    },
+    "tariff_scenarios": [
+      {
+        "name": "central",
+        "standing_charge_p_per_day": 53,
+        "unit_rate_p_per_kwh": 27
+      }
+    ]
+  },
+  "expected": {
+    "metric": "annual_gbp",
+    "value": 555,
+    "tolerance_pct": 6.6
+  },
+  "notes": "BUILD.md requires the Trip2nd central forecast to use the central tariff. The Reddit data supplied here specifies Yorkshire, 64 m2, 2012 new build, total heat loss 1.79 kW, average heat load 28 W/m2, EPC B, Grant Aerona 290 4 kW, UK Cylinders FloCyl Slimline 150 L, 50 C flow at -1.9 C design outdoor, and SCOP 3.9. It does not specify occupants, DHW setpoint, DHW flow temperature, or exact postcode. This fixture uses the API's sensible UK default of 3 occupants, DHW setpoint 48 C, DHW flow 52 C, a central York postcode proxy, and the BUILD.md central tariff. Uses the BUILD.md central tariff (27 p/kWh, 53 p/day standing charge) without modification. Expected band derived from running the model with the real Reddit inputs at the BUILD.md central tariff. The expected.value is the model's p50; tolerance reflects the natural p10-p90 spread. Trip2nd has no realised running cost reported - only the installer's quote and property specs. The expected band is therefore the model's own p10-p90 predictive distribution, making this test a regression anchor (catches model drift) rather than an empirical validation. Twentyman remains the empirical anchor with real measured electricity. defrost_penalty_peak_pct is set to 0 to preserve the BUILD.md v1 pure-Carnot reference expectation."
+}

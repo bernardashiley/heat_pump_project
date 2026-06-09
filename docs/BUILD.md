@@ -234,10 +234,17 @@ Build `pytest` tests in `backend/tests/`. The following are required:
    - DHW electricity > 0 in every month.
    - All API response fields carry a unit suffix.
 3. **Trip2nd reference case** (data in `backend/tests/fixtures/trip2nd.json`):
-   ~64 m² 2012 new build in southern England, derived HLC from the quote,
-   SCOP 3.9, flow 50 °C at −1.9 °C design. The central forecast must land
-   within a plausible band (£600–£1200/year at central tariff). If it
-   doesn't, the model is wrong; fail loudly.
+   64 m² 2012 new build in Yorkshire, 1.79 kW design heat loss from the quote,
+   SCOP 3.9, flow 50 °C at −1.9 °C design. The central forecast lands in the
+   range GBP 518.11-591.63/year at the central tariff (27 p/kWh, 53 p/day
+   standing charge). The original BUILD.md spec guessed GBP 600-1200/year; the
+   real model output is lower because the property has a very low 1.79 kW
+   design heat loss for a 64 m² 2012 new build. Trip2nd has no realised running
+   cost reported — only the installer's quote and property specs. The expected
+   band is therefore the model's own p10-p90 predictive distribution, making
+   this test a regression anchor (catches model drift) rather than an empirical
+   validation. Twentyman remains the empirical anchor with real measured
+   electricity.
 4. **Twentyman benchmark:** a property configured to match Robert
    Twentyman's published 5-year measured average of 13.01 kWh/day. The
    central forecast must land within ±15% of that figure on an annual

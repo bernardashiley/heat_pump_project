@@ -1,0 +1,40 @@
+{
+  "description": "Robert Twentyman measured benchmark: rural Cumbria/Lake District converted barn, 181 m2, underfloor heating, 5 years of dedicated heat-pump electricity data.",
+  "source": "Robert Twentyman, 'Direct comparison - Oil Boiler vs Air Source Heat Pump same house, 12 years of data', Medium, https://medium.com/@robert_twentyman/direct-comparison-oil-boiler-vs-air-source-heat-pump-same-house-12-years-of-data-ff23cde27240",
+  "forecast_request": {
+    "property": {
+      "floor_area_m2": 181,
+      "hlc_w_per_k": 290.33381524570075,
+      "heat_loss_design_w": null,
+      "t_design_outdoor_c": -2,
+      "t_internal_c": 18,
+      "t_base_c": 14.5,
+      "postcode": "CA11 0DQ"
+    },
+    "heat_pump": {
+      "scop": 3.28,
+      "t_flow_sh_c": 40,
+      "t_design_outdoor_c": -2,
+      "defrost_penalty_peak_pct": 0
+    },
+    "dhw": {
+      "occupants": 2,
+      "cylinder_l": 210,
+      "t_setpoint_c": 48,
+      "t_flow_dhw_c": 52
+    },
+    "tariff_scenarios": [
+      {
+        "name": "central",
+        "standing_charge_p_per_day": 53,
+        "unit_rate_p_per_kwh": 27
+      }
+    ]
+  },
+  "expected": {
+    "metric": "daily_kwh_average",
+    "value": 12.68,
+    "tolerance_pct": 15
+  },
+  "notes": "BUILD.md specified 13.01 kWh/day, but the source text supplied by the project owner confirms 22,198 kWh over 1,751 days, which is 12.68 kWh/day, so this fixture uses the source-confirmed measured value. The Medium article reports an 1800s barn converted in 2008, rural Cumbria/Lake District, 4 bedrooms, 2 storeys, 181 m2, underfloor heating, constant 18 C internal temperature, 22,198 kWh over 1,751 days, 12.68 kWh/day, 4,631 kWh/year, approximately 15,000 kWh/year useful heat, and real-world SPF about 3.28. The article does not specify HLC, exact postcode, design outdoor temperature, actual flow temperature, occupants, cylinder size, DHW setpoint, DHW flow, or tariff. This fixture uses a Cumbria postcode proxy, design outdoor -2 C, 40 C space-heating flow within the article's 30-45 C underfloor range, 2 occupants, 210 L cylinder, DHW setpoint 48 C, DHW flow 52 C, and the standard central tariff from the API example. HLC is independently derived from the article's approximate 15,000 kWh/year useful heat: annual modeled DHW heat for 2 occupants is 1,697.19 kWh, leaving 13,302.81 kWh/year for space heating; dividing by the reference-test synthetic climate's mean heating-degree-hours at t_base=14.5 C gives 290.33 W/K. defrost_penalty_peak_pct is set to 0 to preserve the BUILD.md v1 pure-Carnot reference expectation."
+}
