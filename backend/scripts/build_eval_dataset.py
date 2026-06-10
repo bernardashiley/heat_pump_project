@@ -117,6 +117,7 @@ def _mcs_fields_out_of_range(system: dict[str, Any]) -> bool:
     return (
         _required_float(system, "floor_area") <= 10
         or _required_float(system, "heat_loss") <= 0.5
+        or _required_float(system, "heat_loss") > 50
         or _required_float(system, "design_temp") >= 5
         or _required_float(system, "design_temp") <= -15
         or _required_float(system, "flow_temp") <= 20
@@ -232,7 +233,7 @@ def _format_report(
             f"{'- Less than 365 days of data:':48s}{-drops['short_data']:6d}",
             f"{'- data_flag set:':48s}{-drops['data_flag']:6d}",
             f"{'- Missing essential MCS fields:':48s}{-drops['missing_essential']:6d}",
-            f"{'- MCS field out of physical range:':48s}"
+            f"{'- MCS field outside physical range (heat_loss 0.5-50 kW):':48s}"
             f"{-drops['mcs_out_of_range']:6d}",
             f"{'- Quality elec/heat < 90%:':48s}{-drops['low_quality']:6d}",
             f"{'- SPF null or <= 1.5:':48s}{-drops['bad_spf']:6d}",
