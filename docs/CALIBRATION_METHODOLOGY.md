@@ -90,7 +90,15 @@ A system is included if all of the following hold:
 1. The system has a stats record.
 2. `combined_data_length` ≥ 365 × 86400 seconds (at least one year of data).
 3. `data_flag` is unset or zero.
-4. All essential MCS fields are present and non-null: `floor_area`, `heat_loss`, `design_temp`, `flow_temp`, `hp_output`, `latitude`, `longitude`.
+4. All essential MCS fields are present, non-null, and physically valid:
+   - `floor_area` > 10 m²
+   - `heat_loss` > 0.5 kW (≈ 500 W)
+   - `-15 °C < design_temp < 5 °C`
+   - `flow_temp` > 20 °C
+   - `hp_output` > 1 kW
+   - `latitude` and `longitude` are present and non-null
+
+   This criterion was tightened from "present and non-null" after a pre-evaluation data audit found 47 cases with non-positive `heat_loss`, 18 with `design_temp >= 0`, and 6 with `floor_area <= 0`. These cases reflect data-entry errors in the MCS reports and would crash Pydantic validation in the model. The amendment was applied before any evaluation metrics were computed.
 5. `quality_elec` ≥ 90% and `quality_heat` ≥ 90%.
 6. `combined_cop` is not null and > 1.5.
 7. `combined_elec_kwh`, `combined_heat_kwh`, `combined_outsideT_mean` are all present.
