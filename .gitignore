@@ -17,9 +17,18 @@ out/
 .env
 .env.local
 
-# Data + cache (never commit these)
+# Data + cache
 data/cache/
-data/heatpumpmonitor/
+
+# Heat pump monitor data: ignore raw fetches and outputs, but commit climate cache
+data/heatpumpmonitor/*.json
+data/heatpumpmonitor/*.csv
+data/heatpumpmonitor/*.md
+data/heatpumpmonitor/*.txt
+!data/heatpumpmonitor/README.md
+!data/heatpumpmonitor/climate_cache/
+!data/heatpumpmonitor/climate_cache/**
+
 *.sqlite
 *.db
 

@@ -80,7 +80,7 @@ The evaluation reported in this document is fully reproducible from the project 
 
 
 
-\*\*Dataset snapshot:\*\* HeatpumpMonitor.org systems and stats fetched on 9 June 2026, frozen as `data/heatpumpmonitor/systems\_20260609.json` and `data/heatpumpmonitor/stats\_all\_20260609.json` in the project repository.
+\*\*Dataset snapshot:\*\* HeatpumpMonitor.org systems and stats fetched on 9 June 2026; see `data/heatpumpmonitor/README.md` for the snapshot\'s availability status in the project repository.
 
 
 
@@ -150,7 +150,7 @@ Total wall-clock time for the evaluator on a populated cache is approximately 4.
 
 
 
-The full project repository, including the methodology document, evaluation scripts, frozen dataset snapshot, climate cache, and this report, is available at https://github.com/bernardashiley/heat\_pump\_project.
+The complete project repository, including the methodology document, evaluation scripts, climate cache, and this report, is available at https://github.com/bernardashiley/heat_pump_project. The HeatpumpMonitor.org dataset snapshot used in this evaluation is not redistributed in the repository owing to absence of an explicit dataset redistribution licence; the data is openly fetchable from HeatpumpMonitor.org via the included fetch script, and the exact 9 June 2026 snapshot used in this report may be obtained by contacting the author (see ?12.1). Reproduction details are in `data/heatpumpmonitor/README.md`.
 
 
 
