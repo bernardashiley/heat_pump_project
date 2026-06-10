@@ -4,8 +4,8 @@
 **Status:** Pre-registered. Frozen before any evaluation metrics computed.
 **Author:** Odwira & Whitehall
 **Date:** 9 June 2026
-**Document commit hash:** <to be recorded at commit time>
-**Model code commit hash at evaluation time:** <to be recorded at evaluation time>
+**Document commit hash:** 2a6d0bc599d79c6ff83474c6101e83f3ddc1ccdb
+**Model code commit hash at evaluation time:** b841e73eab87238261ec30b8d611e89dcb82b35f
 
 This document specifies the methodology for evaluating the v1 forecasting
 model against UK heat pump monitoring data from HeatpumpMonitor.org. It is
