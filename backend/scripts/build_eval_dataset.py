@@ -113,6 +113,17 @@ def _optional_energy_kwh(stats: dict[str, Any], field: str) -> float:
     return value if value is not None else 0.0
 
 
+def _mcs_fields_out_of_range(system: dict[str, Any]) -> bool:
+    return (
+        _required_float(system, "floor_area") <= 10
+        or _required_float(system, "heat_loss") <= 0.5
+        or _required_float(system, "design_temp") >= 5
+        or _required_float(system, "design_temp") <= -15
+        or _required_float(system, "flow_temp") <= 20
+        or _required_float(system, "hp_output") <= 1
+    )
+
+
 def _optional_str(value: Any) -> str | None:
     if value in (None, ""):
         return None
@@ -221,6 +232,8 @@ def _format_report(
             f"{'- Less than 365 days of data:':48s}{-drops['short_data']:6d}",
             f"{'- data_flag set:':48s}{-drops['data_flag']:6d}",
             f"{'- Missing essential MCS fields:':48s}{-drops['missing_essential']:6d}",
+            f"{'- MCS field out of physical range:':48s}"
+            f"{-drops['mcs_out_of_range']:6d}",
             f"{'- Quality elec/heat < 90%:':48s}{-drops['low_quality']:6d}",
             f"{'- SPF null or <= 1.5:':48s}{-drops['bad_spf']:6d}",
             f"{'- Cooling or immersion backup > 5% of total electricity:':48s}"
@@ -250,6 +263,7 @@ def main() -> None:
         "short_data": 0,
         "data_flag": 0,
         "missing_essential": 0,
+        "mcs_out_of_range": 0,
         "low_quality": 0,
         "bad_spf": 0,
         "cooling_immersion": 0,
@@ -273,6 +287,10 @@ def main() -> None:
 
         if any(not _is_present(system.get(field)) for field in ESSENTIAL_FIELDS):
             drops["missing_essential"] += 1
+            continue
+
+        if _mcs_fields_out_of_range(system):
+            drops["mcs_out_of_range"] += 1
             continue
 
         quality_elec = _to_float(stats.get("quality_elec"))
