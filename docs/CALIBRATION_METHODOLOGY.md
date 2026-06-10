@@ -4,7 +4,7 @@
 **Status:** Pre-registered. Frozen before any evaluation metrics computed.
 **Author:** Odwira & Whitehall
 **Date:** 9 June 2026
-**Document commit hash:** 2a6d0bc599d79c6ff83474c6101e83f3ddc1ccdb
+**Document commit hash:** 6b1a3ab523c032944bbc88202c57be7ef5b44baa
 **Model code commit hash at evaluation time:** 957dd27a27ba7a60cf772a76016102b17e8589f6
 
 This document specifies the methodology for evaluating the v1 forecasting
