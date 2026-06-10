@@ -52,9 +52,37 @@ The methodology document also fixes the random seed for reproducibility, defines
 
 
 
+### 3.1 Metrics definitions
+
+The aggregate metrics reported in section 5 are defined as follows. Let $y_i$ denote the realised annual electricity for case $i$, $\hat{y}_i$ the model's median Monte Carlo draw (p50) for case $i$, and $F_i$ the empirical cumulative distribution function of the model's 1,000-draw Monte Carlo predictions for case $i$. Let $n$ denote the number of cases in the relevant subset.
+
+**Mean Absolute Percentage Error (MAPE):**
+
+$$\mathrm{MAPE} = \frac{1}{n} \sum_{i=1}^{n} \left| \frac{y_i - \hat{y}_i}{y_i} \right|$$
+
+where $\hat{y}_i$ is the median (p50) of the Monte Carlo predictions for case $i$.
+
+**Median Absolute Percentage Error (MdAPE)** is the median rather than the mean of the per-case absolute percentage errors. **Trimmed MAPE** is computed after dropping the top and bottom 5% of per-case absolute percentage errors.
+
+**Median signed error** is the median of the per-case signed percentage errors $(\hat{y}_i - y_i)/y_i$.
+
+**Coverage** of the 80% prediction interval is the proportion of cases for which the realised value falls between the model's p10 and p90:
+
+$$\mathrm{Coverage} = \frac{1}{n} \sum_{i=1}^{n} \mathbb{1}\left[ p_{10,i} \leq y_i \leq p_{90,i} \right]$$
+
+**Median interval width** is reported as a percentage of median realised electricity:
+
+$$\mathrm{Width\%} = \frac{\mathrm{median}_i(p_{90,i} - p_{10,i})}{\mathrm{median}_i(y_i)} \times 100$$
+
+**Continuous Ranked Probability Score (CRPS)** for case $i$ is computed from the empirical CDF $F_i$ as:
+
+$$\mathrm{CRPS}(F_i, y_i) = \int_{-\infty}^{\infty} \left[ F_i(x) - \mathbb{1}_{x \geq y_i} \right]^2 \, dx$$
+
+Mean CRPS across cases is reported in kWh (the units of $y_i$). The implementation uses the `properscoring` library's `crps_ensemble` against the 1,000 retained Monte Carlo draws per case.
+
+**Wilson 95% confidence interval** for the coverage proportion uses the standard score-interval form with continuity correction omitted, as implemented in `statsmodels.stats.proportion.proportion_confint(method='wilson')`. The interval assumes independent Bernoulli trials across cases. The 303 cases are distinct geographic installations evaluated against a 20-winter typical climate; while modest spatial correlation in regional weather anomalies may exist, the use of long-run climatology rather than per-case monitoring-window weather makes the independence assumption defensible at the precision required by the validation thresholds.
+
 ---
-
-
 
 ## 4. Provenance and Reproducibility
 
@@ -269,7 +297,7 @@ The Probability Integral Transform distributions for the seven runs are presente
 
 
 
-All seven KS p-values are reported as 0.0000 — the PIT distributions are not statistically distinguishable from non-uniform at any conventional significance level. The most diagnostic feature is the rightmost bin. For Run B, the PIT bin covering realised values above the model's 90th percentile contains 72.8% of cases. For Run E it is 76.2%. For the eligible-set runs (A-full, F), the rightmost bin contains 42.2% and 29.0% respectively. The leftmost bin contains a smaller but non-trivial fraction (18.2% for A-full, 23.8% for F), indicating a secondary cluster of overpredicted cases — but the dominant signal across all runs is that the model places its 90th percentile *below* the realised value for the majority of cases.
+All seven KS p-values are reported as 0.0000 — the PIT distributions are not statistically distinguishable from uniform at any conventional significance level. The one-sample Kolmogorov–Smirnov test was applied against the uniform reference $U(0,1)$. At the sample sizes available (151 for measured-input runs, 303 for eligible-set runs), the KS test is highly powered and would detect even modest departures from uniformity. The test is reported here not as evidence in its own right but as formalisation of the structural deviation that is visually obvious in the PIT bin arrays below. The most diagnostic feature is the rightmost bin. For Run B, the PIT bin covering realised values above the model's 90th percentile contains 72.8% of cases. For Run E it is 76.2%. For the eligible-set runs (A-full, F), the rightmost bin contains 42.2% and 29.0% respectively. The leftmost bin contains a smaller but non-trivial fraction (18.2% for A-full, 23.8% for F), indicating a secondary cluster of overpredicted cases — but the dominant signal across all runs is that the model places its 90th percentile *below* the realised value for the majority of cases.
 
 
 
@@ -773,6 +801,8 @@ The limitations of this evaluation are pre-registered in methodology section 6 a
 
 
 **Confirmation bias.** The model code was developed by the author with prior exposure to the Twentyman reference case used in the test suite. The HeatpumpMonitor.org evaluation set was not used during model development. Confirmation bias cannot be excluded. Methodology section 9.5.
+
+**CRPS reported without skill-score baseline.** The CRPS values in section 5.1 are reported as absolute means in kWh and are scale-dependent. No naive baseline (e.g., dataset-mean predictor, floor-area regression) was computed for v1, so the Continuous Ranked Probability Skill Score (CRPSS) is not available. CRPS is therefore interpretable only for internal run-to-run comparison within this evaluation (e.g., Run B versus Run F), not as an absolute statement of probabilistic forecasting skill. A baseline CRPSS computation is added to the v1.1 evaluation specification.
 
 
 
