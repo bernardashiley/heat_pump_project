@@ -5,7 +5,7 @@
 **Author:** Odwira & Whitehall
 **Date:** 9 June 2026
 **Document commit hash:** 2a6d0bc599d79c6ff83474c6101e83f3ddc1ccdb
-**Model code commit hash at evaluation time:** b841e73eab87238261ec30b8d611e89dcb82b35f
+**Model code commit hash at evaluation time:** 957dd27a27ba7a60cf772a76016102b17e8589f6
 
 This document specifies the methodology for evaluating the v1 forecasting
 model against UK heat pump monitoring data from HeatpumpMonitor.org. It is
