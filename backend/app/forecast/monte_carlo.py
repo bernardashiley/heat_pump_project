@@ -123,6 +123,7 @@ def _kwh_percentiles(draws_kwh: np.ndarray) -> KwhPercentiles:
 def forecast_from_request(
     request: ForecastRequest,
     cache_dir: Path = DEFAULT_CACHE_DIR,
+    random_seed: int | None = None,
 ) -> ForecastResponse:
     """Run the full forecast pipeline for an API forecast request.
 
@@ -189,9 +190,23 @@ def forecast_from_request(
         winter_index,
     )
 
-    draws_sh = generate_electricity_draws(annual_sh_by_winter)
-    draws_dhw = generate_electricity_draws(annual_dhw_by_winter)
-    draws_total = generate_electricity_draws(annual_total_by_winter)
+    # Derive independent deterministic streams for SH, DHW, and total draws
+    # while preserving fully random behavior when no seed is provided.
+    sh_seed = random_seed
+    dhw_seed = random_seed + 1 if random_seed is not None else None
+    total_seed = random_seed + 2 if random_seed is not None else None
+    draws_sh = generate_electricity_draws(
+        annual_sh_by_winter,
+        random_seed=sh_seed,
+    )
+    draws_dhw = generate_electricity_draws(
+        annual_dhw_by_winter,
+        random_seed=dhw_seed,
+    )
+    draws_total = generate_electricity_draws(
+        annual_total_by_winter,
+        random_seed=total_seed,
+    )
 
     median_total = np.median(annual_total_by_winter)
     median_winter_id = int(np.argmin(np.abs(annual_total_by_winter - median_total)))

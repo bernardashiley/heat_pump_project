@@ -252,3 +252,30 @@ def test_orchestrator_with_defrost_penalty_raises_electricity(
 
     assert penalised.total.p50_kwh > unpenalised.total.p50_kwh
     assert 0.04 <= increase_fraction <= 0.15
+
+
+def test_forecast_with_seed_is_deterministic(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    request = _forecast_request()
+
+    first = forecast_from_request(request, cache_dir=tmp_path, random_seed=42)
+    second = forecast_from_request(request, cache_dir=tmp_path, random_seed=42)
+
+    assert first.draws_kwh == second.draws_kwh
+    assert first.total.p50_kwh == second.total.p50_kwh
+
+
+def test_forecast_with_different_seeds_differ(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    request = _forecast_request()
+
+    first = forecast_from_request(request, cache_dir=tmp_path, random_seed=42)
+    second = forecast_from_request(request, cache_dir=tmp_path, random_seed=43)
+
+    assert first.draws_kwh != second.draws_kwh
