@@ -108,6 +108,11 @@ def _required_float(system: dict[str, Any], field: str) -> float:
     return value
 
 
+def _optional_energy_kwh(stats: dict[str, Any], field: str) -> float:
+    value = _to_float(stats.get(field))
+    return value if value is not None else 0.0
+
+
 def _optional_str(value: Any) -> str | None:
     if value in (None, ""):
         return None
@@ -157,6 +162,10 @@ def _build_case(system: dict[str, Any], stats: dict[str, Any]) -> dict[str, Any]
             * scale_to_year,
             "annual_heat_kwh": _required_float(stats, "combined_heat_kwh")
             * scale_to_year,
+            "cooling_elec_kwh": _optional_energy_kwh(stats, "cooling_elec_kwh")
+            * scale_to_year,
+            "immersion_kwh": _optional_energy_kwh(stats, "immersion_kwh")
+            * scale_to_year,
             "spf": _required_float(stats, "combined_cop"),
             "mean_outside_c": _required_float(stats, "combined_outsideT_mean"),
             "mean_indoor_c": _to_float(stats.get("combined_roomT_mean")),
@@ -192,9 +201,15 @@ def _format_report(
         case["best_info_overrides"]["t_internal_c_measured"] is not None
         for case in cases
     )
+    strict_zero_count = sum(
+        case["realised"]["cooling_elec_kwh"] == 0
+        and case["realised"]["immersion_kwh"] == 0
+        for case in cases
+    )
     surviving = len(cases)
     heat_loss_pct = 100 * measured_heat_loss_count / surviving if surviving else 0
     indoor_pct = 100 * measured_indoor_count / surviving if surviving else 0
+    strict_zero_pct = 100 * strict_zero_count / surviving if surviving else 0
 
     return "\n".join(
         [
@@ -208,6 +223,8 @@ def _format_report(
             f"{'- Missing essential MCS fields:':48s}{-drops['missing_essential']:6d}",
             f"{'- Quality elec/heat < 90%:':48s}{-drops['low_quality']:6d}",
             f"{'- SPF null or <= 1.5:':48s}{-drops['bad_spf']:6d}",
+            f"{'- Cooling or immersion backup > 5% of total electricity:':48s}"
+            f"{-drops['cooling_immersion']:6d}",
             "",
             f"{'Surviving evaluation cases:':48s}{surviving:6d}",
             "",
@@ -215,6 +232,9 @@ def _format_report(
             f"{measured_heat_loss_count:6d} ({heat_loss_pct:.1f}%)",
             f"{'With measured indoor temp override available:':48s}"
             f"{measured_indoor_count:6d} ({indoor_pct:.1f}%)",
+            f"{'Strict-zero cooling/immersion subset (both zero or missing):':48s}"
+            f"{strict_zero_count:6d} of {surviving} surviving cases "
+            f"({strict_zero_pct:.1f}%)",
             "",
         ]
     )
@@ -232,6 +252,7 @@ def main() -> None:
         "missing_essential": 0,
         "low_quality": 0,
         "bad_spf": 0,
+        "cooling_immersion": 0,
     }
     cases = []
 
@@ -271,6 +292,13 @@ def main() -> None:
         spf = _to_float(stats.get("combined_cop"))
         if spf is None or spf <= 1.5:
             drops["bad_spf"] += 1
+            continue
+
+        combined_elec_kwh = _required_float(stats, "combined_elec_kwh")
+        cooling_elec_kwh = _optional_energy_kwh(stats, "cooling_elec_kwh")
+        immersion_kwh = _optional_energy_kwh(stats, "immersion_kwh")
+        if (cooling_elec_kwh + immersion_kwh) / combined_elec_kwh > 0.05:
+            drops["cooling_immersion"] += 1
             continue
 
         cases.append(_build_case(system, stats))
