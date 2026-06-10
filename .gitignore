@@ -19,6 +19,7 @@ out/
 
 # Data + cache (never commit these)
 data/cache/
+data/heatpumpmonitor/
 *.sqlite
 *.db
 
