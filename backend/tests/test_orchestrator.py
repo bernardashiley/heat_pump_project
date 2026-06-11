@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import respx
+from pydantic import ValidationError
 
 from app.forecast.monte_carlo import DEFAULT_CACHE_DIR, forecast_from_request
 from app.models import (
@@ -127,6 +128,18 @@ def _mock_constant_apis(router: respx.MockRouter) -> None:
 
 def _assert_ordered_percentiles(p10: float, p50: float, p90: float) -> None:
     assert p10 <= p50 <= p90
+
+
+def test_property_input_requires_internal_temperature() -> None:
+    with pytest.raises(ValidationError, match="t_internal_c"):
+        PropertyInput(
+            floor_area_m2=95,
+            hlc_w_per_k=180,
+            heat_loss_design_w=None,
+            t_design_outdoor_c=-2,
+            t_base_c=15.5,
+            postcode="OX1 2JD",
+        )
 
 
 def test_orchestrator_end_to_end_returns_valid_response(

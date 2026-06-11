@@ -131,11 +131,16 @@ def _optional_str(value: Any) -> str | None:
     return str(value)
 
 
-def _internal_temperature(system: dict[str, Any]) -> float:
+def _internal_temperature(
+    system: dict[str, Any],
+    measured_indoor_temperature: float | None,
+) -> tuple[float, str]:
+    if measured_indoor_temperature is not None:
+        return measured_indoor_temperature, "measured"
     indoor_temperature = _to_float(system.get("indoor_temperature"))
     if indoor_temperature is not None and 15 <= indoor_temperature <= 25:
-        return indoor_temperature
-    return 21.0
+        return indoor_temperature, "declared"
+    return 21.0, "fallback"
 
 
 def _measured_indoor_temperature(stats: dict[str, Any]) -> float | None:
@@ -157,6 +162,11 @@ def _build_case(system: dict[str, Any], stats: dict[str, Any]) -> dict[str, Any]
     data_length = _required_float(stats, "combined_data_length")
     scale_to_year = DAYS_PER_YEAR * SECONDS_PER_DAY / data_length
     notes = _optional_str(system.get("notes"))
+    measured_indoor_temperature = _measured_indoor_temperature(stats)
+    t_internal_c, t_internal_c_source = _internal_temperature(
+        system,
+        measured_indoor_temperature,
+    )
 
     return {
         "system_id": int(system["id"]),
@@ -168,6 +178,7 @@ def _build_case(system: dict[str, Any], stats: dict[str, Any]) -> dict[str, Any]
         "insulation": str(system.get("insulation") or ""),
         "latitude": _required_float(system, "latitude"),
         "longitude": _required_float(system, "longitude"),
+        "t_internal_c_source": t_internal_c_source,
         "data_days": data_length / SECONDS_PER_DAY,
         "realised": {
             "annual_elec_kwh": _required_float(stats, "combined_elec_kwh")
@@ -188,14 +199,14 @@ def _build_case(system: dict[str, Any], stats: dict[str, Any]) -> dict[str, Any]
             "heat_loss_design_w": _required_float(system, "heat_loss") * 1000,
             "t_design_outdoor_c": _required_float(system, "design_temp"),
             "t_flow_sh_c": _required_float(system, "flow_temp"),
-            "t_internal_c": _internal_temperature(system),
+            "t_internal_c": t_internal_c,
             "hp_output_kw": _required_float(system, "hp_output"),
             "cylinder_l": _to_float(system.get("cylinder_volume")),
             "notes_field": notes[:500] if notes is not None else None,
         },
         "best_info_overrides": {
             "heat_loss_design_w_measured": _measured_heat_loss(system),
-            "t_internal_c_measured": _measured_indoor_temperature(stats),
+            "t_internal_c_measured": measured_indoor_temperature,
         },
     }
 

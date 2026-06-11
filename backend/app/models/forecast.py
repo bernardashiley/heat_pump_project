@@ -8,7 +8,7 @@ class PropertyInput(BaseModel):
     hlc_w_per_k: float | None = Field(default=None, gt=0)
     heat_loss_design_w: float | None = Field(default=None, gt=0)
     t_design_outdoor_c: float
-    t_internal_c: float = Field(default=21)
+    t_internal_c: float = Field(ge=10, le=30)
     t_base_c: float = Field(default=15.5)
     postcode: str = Field(min_length=5, max_length=10)
 

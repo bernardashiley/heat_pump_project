@@ -88,6 +88,14 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Limit evaluation to the first N cases. For testing only.",
     )
+    parser.add_argument(
+        "--require-measured-indoor-temperature",
+        action="store_true",
+        help=(
+            "Exclude fallback indoor-temperature cases from A-full and F. "
+            "Used for v1.1 Change 3 configurations."
+        ),
+    )
     args = parser.parse_args()
     if args.use_frozen_snapshot and not args.snapshot_date:
         parser.error("--use-frozen-snapshot requires --snapshot-date YYYYMMDD")
@@ -210,8 +218,18 @@ def _forecast_with_ssl_fallback(
             )
 
 
-def _run_applies(case: dict[str, Any], run_name: str) -> bool:
+def _run_applies(
+    case: dict[str, Any],
+    run_name: str,
+    *,
+    require_measured_indoor_temperature: bool = False,
+) -> bool:
     if run_name in FULL_SET_RUNS:
+        if (
+            require_measured_indoor_temperature
+            and case.get("t_internal_c_source") == "fallback"
+        ):
+            return False
         return True
     if run_name in MEASURED_SUBSET_RUNS:
         return _is_measured_subset(case)
@@ -333,11 +351,20 @@ def _run_forecast(
     }
 
 
-def _evaluate_case(case: dict[str, Any], random_seed: int) -> dict[str, Any]:
+def _evaluate_case(
+    case: dict[str, Any],
+    random_seed: int,
+    *,
+    require_measured_indoor_temperature: bool = False,
+) -> dict[str, Any]:
     case_seed = random_seed * 1000 + int(case["system_id"])
     runs: dict[str, Any] = {}
     for run_name in RUN_ORDER:
-        if _run_applies(case, run_name):
+        if _run_applies(
+            case,
+            run_name,
+            require_measured_indoor_temperature=require_measured_indoor_temperature,
+        ):
             runs[run_name] = _run_forecast(case, run_name, random_seed=case_seed)
 
     return {
@@ -353,6 +380,7 @@ def _evaluate_case(case: dict[str, Any], random_seed: int) -> dict[str, Any]:
         "realised_spf": float(case["realised"]["spf"]),
         "strict_zero_cooling_immersion": _strict_zero(case),
         "measured_input_subset": _is_measured_subset(case),
+        "t_internal_c_source": case.get("t_internal_c_source", "unknown"),
         "case_seed": case_seed,
         "runs": runs,
     }
@@ -889,6 +917,7 @@ def _write_report(
         f"- Evaluation timestamp: `{timestamp}`",
         f"- Random seed: `{args.random_seed}`",
         f"- Per-case seed scheme: `case_seed = random_seed * 1000 + system_id`; the same case seed is used across all seven runs.",
+        f"- Require indoor temperature input: `{args.require_measured_indoor_temperature}`",
         f"- Snapshot mode: `{snapshot_mode}`",
         f"- Snapshot date: `{snapshot_date}`",
         f"- Per-case failures: `{len(failures)}`",
@@ -987,7 +1016,15 @@ def main() -> None:
     failures: list[dict[str, Any]] = []
     for index, case in enumerate(cases, start=1):
         try:
-            predictions.append(_evaluate_case(case, args.random_seed))
+            predictions.append(
+                _evaluate_case(
+                    case,
+                    args.random_seed,
+                    require_measured_indoor_temperature=(
+                        args.require_measured_indoor_temperature
+                    ),
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             failures.append({"system_id": case.get("system_id"), "error": repr(exc)})
             print(
