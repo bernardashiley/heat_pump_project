@@ -48,10 +48,31 @@ def _open_meteo_payload() -> dict[str, dict[str, list]]:
     }
 
 
+def _constant_open_meteo_payload(start_date: str, end_date: str) -> dict[str, dict[str, list]]:
+    dates = pd.date_range(start_date, end_date, freq="D")
+    return {
+        "daily": {
+            "time": [date.strftime("%Y-%m-%d") for date in dates],
+            "temperature_2m_mean": [5.0 for _ in dates],
+        }
+    }
+
+
 def _mock_open_meteo(router: respx.MockRouter) -> respx.Route:
     return router.get(host="archive-api.open-meteo.com").mock(
         return_value=httpx.Response(200, json=_open_meteo_payload())
     )
+
+
+def _mock_constant_open_meteo(router: respx.MockRouter) -> respx.Route:
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        return httpx.Response(
+            200,
+            json=_constant_open_meteo_payload(params["start_date"], params["end_date"]),
+        )
+
+    return router.get(host="archive-api.open-meteo.com").mock(side_effect=handler)
 
 
 def _forecast_request(
@@ -97,6 +118,11 @@ def _forecast_request(
 def _mock_apis(router: respx.MockRouter) -> None:
     _mock_postcode(router)
     _mock_open_meteo(router)
+
+
+def _mock_constant_apis(router: respx.MockRouter) -> None:
+    _mock_postcode(router)
+    _mock_constant_open_meteo(router)
 
 
 def _assert_ordered_percentiles(p10: float, p50: float, p90: float) -> None:
@@ -228,6 +254,50 @@ def test_orchestrator_monthly_breakdown_winter_months_nonzero(
     assert all(value > 0 for value in response.monthly_breakdown_median_kwh[0:3])
     assert all(value == 0 for value in response.monthly_breakdown_median_kwh[3:9])
     assert all(value > 0 for value in response.monthly_breakdown_median_kwh[9:12])
+
+
+def test_orchestrator_explicit_winter_mode_matches_default(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    request = _forecast_request()
+
+    default = forecast_from_request(request, cache_dir=tmp_path, random_seed=42)
+    explicit = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        demand_period_mode="winter",
+    )
+
+    assert default.draws_kwh == explicit.draws_kwh
+    assert default.total.p50_kwh == explicit.total.p50_kwh
+
+
+def test_orchestrator_full_year_mode_roughly_doubles_winter_mode(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_constant_apis(respx_mock)
+    request = _forecast_request()
+
+    winter = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        demand_period_mode="winter",
+    )
+    full_year = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        demand_period_mode="full_year",
+    )
+
+    assert full_year.total.p50_kwh / winter.total.p50_kwh == pytest.approx(2.0, rel=0.08)
+    assert (tmp_path / "51.7500_-1.2500_20.parquet").exists()
+    assert (tmp_path / "51.7500_-1.2500_20_full.parquet").exists()
 
 
 def test_orchestrator_with_defrost_penalty_raises_electricity(

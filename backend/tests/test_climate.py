@@ -9,6 +9,7 @@ import respx
 
 from app.forecast.climate import (
     OPEN_METEO_BASE_URL,
+    fetch_year_daily_mean_temperatures,
     fetch_winter_daily_mean_temperatures,
     geocode_postcode,
     load_or_fetch_climate,
@@ -60,6 +61,17 @@ def _mock_open_meteo(
     )
 
 
+def _mock_open_meteo_dynamic(router: respx.MockRouter) -> respx.Route:
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        return httpx.Response(
+            200,
+            json=_open_meteo_payload(params["start_date"], params["end_date"]),
+        )
+
+    return router.get(host="archive-api.open-meteo.com").mock(side_effect=handler)
+
+
 def test_geocode_postcode_happy_path(respx_mock: respx.MockRouter) -> None:
     _mock_postcode(respx_mock, latitude=51.75, longitude=-1.25)
 
@@ -91,6 +103,18 @@ def test_fetch_filters_to_winter_only(respx_mock: respx.MockRouter) -> None:
 
     assert len(climate) == 182
     assert set(climate["date"].dt.month).issubset({1, 2, 3, 10, 11, 12})
+
+
+def test_fetch_year_returns_full_calendar_years(respx_mock: respx.MockRouter) -> None:
+    _mock_open_meteo(respx_mock, _open_meteo_payload("2024-01-01", "2025-12-31"))
+
+    climate = fetch_year_daily_mean_temperatures(51.75, -1.25, years=2)
+
+    assert len(climate) == 731
+    assert set(climate["date"].dt.month) == set(range(1, 13))
+    assert set(climate["year_id"]) == {0, 1}
+    assert len(climate.loc[climate["year_id"] == 0]) == 366
+    assert len(climate.loc[climate["year_id"] == 1]) == 365
 
 
 def test_fetch_assigns_correct_winter_id(respx_mock: respx.MockRouter) -> None:
@@ -174,6 +198,49 @@ def test_load_or_fetch_atomic_write(
 
     assert (tmp_path / "51.7500_-1.2500_1.parquet").exists()
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_load_or_fetch_full_year_uses_distinct_cache_key(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_postcode(respx_mock, latitude=51.75, longitude=-1.25)
+    _mock_open_meteo(respx_mock, _open_meteo_payload("2025-01-01", "2025-12-31"))
+
+    load_or_fetch_climate(
+        _property_input(),
+        tmp_path,
+        winters=1,
+        demand_period_mode="full_year",
+    )
+
+    assert (tmp_path / "51.7500_-1.2500_1_full.parquet").exists()
+    assert not (tmp_path / "51.7500_-1.2500_1.parquet").exists()
+
+
+def test_load_or_fetch_full_year_and_winter_caches_do_not_contaminate(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_postcode(respx_mock, latitude=51.75, longitude=-1.25)
+    _mock_open_meteo_dynamic(respx_mock)
+
+    winter = load_or_fetch_climate(_property_input(), tmp_path, winters=1)
+    full_year = load_or_fetch_climate(
+        _property_input(),
+        tmp_path,
+        winters=1,
+        demand_period_mode="full_year",
+    )
+
+    assert (tmp_path / "51.7500_-1.2500_1.parquet").exists()
+    assert (tmp_path / "51.7500_-1.2500_1_full.parquet").exists()
+    assert "winter_id" in winter.columns
+    assert "year_id" not in winter.columns
+    assert "year_id" in full_year.columns
+    assert "winter_id" not in full_year.columns
+    assert len(winter) == 182
+    assert len(full_year) == 365
 
 
 def test_cache_filename_does_not_contain_postcode(

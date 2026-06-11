@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from time import time
+from typing import Literal
 
 import httpx
 import pandas as pd
@@ -13,6 +14,7 @@ HTTP_TIMEOUT_SECONDS = 10
 CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 LATEST_COMPLETE_WINTER_END_YEAR = 2026
 WINTER_MONTHS = {1, 2, 3, 10, 11, 12}
+DemandPeriodMode = Literal["winter", "full_year"]
 
 
 def geocode_postcode(postcode: str) -> tuple[float, float]:
@@ -50,6 +52,34 @@ def _expected_winter_days(start_year: int, winters: int) -> int:
     return int(dates.month.isin(WINTER_MONTHS).sum())
 
 
+def _fetch_daily_mean_temperatures(
+    latitude: float,
+    longitude: float,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "start_date": start_date,
+        "end_date": end_date,
+        "daily": "temperature_2m_mean",
+        "timezone": "Europe/London",
+    }
+
+    with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
+        response = client.get(OPEN_METEO_BASE_URL, params=params)
+        response.raise_for_status()
+
+    daily = response.json()["daily"]
+    return pd.DataFrame(
+        {
+            "date": pd.to_datetime(daily["time"]),
+            "t_out_c": daily["temperature_2m_mean"],
+        }
+    )
+
+
 def fetch_winter_daily_mean_temperatures(
     latitude: float,
     longitude: float,
@@ -70,25 +100,11 @@ def fetch_winter_daily_mean_temperatures(
     start_year = LATEST_COMPLETE_WINTER_END_YEAR - winters
     start_date = f"{start_year}-10-01"
     end_date = f"{LATEST_COMPLETE_WINTER_END_YEAR}-03-31"
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "start_date": start_date,
-        "end_date": end_date,
-        "daily": "temperature_2m_mean",
-        "timezone": "Europe/London",
-    }
-
-    with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
-        response = client.get(OPEN_METEO_BASE_URL, params=params)
-        response.raise_for_status()
-
-    daily = response.json()["daily"]
-    climate = pd.DataFrame(
-        {
-            "date": pd.to_datetime(daily["time"]),
-            "t_out_c": daily["temperature_2m_mean"],
-        }
+    climate = _fetch_daily_mean_temperatures(
+        latitude=latitude,
+        longitude=longitude,
+        start_date=start_date,
+        end_date=end_date,
     )
     climate = climate[climate["date"].dt.month.isin(WINTER_MONTHS)].copy()
     climate["winter_start_year"] = climate["date"].map(_winter_start_year)
@@ -108,10 +124,59 @@ def fetch_winter_daily_mean_temperatures(
     return climate
 
 
+def fetch_year_daily_mean_temperatures(
+    latitude: float,
+    longitude: float,
+    years: int = 20,
+) -> pd.DataFrame:
+    """Fetch historical full-year daily mean outdoor temperatures for one location.
+
+    Inputs:
+    - latitude: site latitude in decimal degrees.
+    - longitude: site longitude in decimal degrees.
+    - years: number of complete calendar-year realisations to fetch, count.
+
+    Outputs:
+    - pandas.DataFrame with year identifiers, dates, and daily mean temperatures in °C.
+    """
+    end_year = LATEST_COMPLETE_WINTER_END_YEAR - 1
+    start_year = end_year - years + 1
+    start_date = f"{start_year}-01-01"
+    end_date = f"{end_year}-12-31"
+
+    climate = _fetch_daily_mean_temperatures(
+        latitude=latitude,
+        longitude=longitude,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    climate["year_id"] = climate["date"].dt.year - start_year
+    climate = climate[["date", "year_id", "t_out_c"]].sort_values("date")
+    climate["year_id"] = climate["year_id"].astype(int)
+    climate["t_out_c"] = climate["t_out_c"].astype(float)
+    climate = climate.reset_index(drop=True)
+
+    expected_days = len(
+        pd.date_range(
+            pd.Timestamp(year=start_year, month=1, day=1),
+            pd.Timestamp(year=end_year, month=12, day=31),
+            freq="D",
+        )
+    )
+    actual_days = len(climate)
+    if actual_days != expected_days:
+        raise ValueError(
+            f"climate data has gaps: expected {expected_days} days, got {actual_days}"
+        )
+
+    return climate
+
+
 def load_or_fetch_climate(
     property_input: PropertyInput,
     cache_dir: Path,
     winters: int = 20,
+    demand_period_mode: DemandPeriodMode = "winter",
 ) -> pd.DataFrame:
     """Load cached climate data or fetch and cache winter daily mean temperatures.
 
@@ -120,14 +185,20 @@ def load_or_fetch_climate(
     Inputs:
     - property_input: property schema containing postcode for location lookup.
     - cache_dir: filesystem path where climate cache files are stored.
-    - winters: number of October-March winter realisations to load or fetch, count.
+    - winters: number of weather realisations to load or fetch, count.
+    - demand_period_mode: "winter" for October-March data, "full_year" for calendar years.
 
     Outputs:
     - pandas.DataFrame with winter identifiers, dates, and daily mean temperatures in °C.
     """
     latitude, longitude = geocode_postcode(property_input.postcode)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_key = f"{latitude:.4f}_{longitude:.4f}_{winters}.parquet"
+    if demand_period_mode == "winter":
+        cache_key = f"{latitude:.4f}_{longitude:.4f}_{winters}.parquet"
+    elif demand_period_mode == "full_year":
+        cache_key = f"{latitude:.4f}_{longitude:.4f}_{winters}_full.parquet"
+    else:
+        raise ValueError(f"unknown demand_period_mode: {demand_period_mode}")
     cache_path = cache_dir / cache_key
 
     if cache_path.exists():
@@ -135,7 +206,10 @@ def load_or_fetch_climate(
         if cache_age_seconds < CACHE_MAX_AGE_SECONDS:
             return pd.read_parquet(cache_path)
 
-    climate = fetch_winter_daily_mean_temperatures(latitude, longitude, winters)
+    if demand_period_mode == "winter":
+        climate = fetch_winter_daily_mean_temperatures(latitude, longitude, winters)
+    else:
+        climate = fetch_year_daily_mean_temperatures(latitude, longitude, winters)
     tmp_path = cache_path.with_name(f"{cache_path.name}.tmp")
     climate.to_parquet(tmp_path, index=False)
     tmp_path.replace(cache_path)

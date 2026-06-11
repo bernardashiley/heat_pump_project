@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -124,6 +125,7 @@ def forecast_from_request(
     request: ForecastRequest,
     cache_dir: Path = DEFAULT_CACHE_DIR,
     random_seed: int | None = None,
+    demand_period_mode: Literal["winter", "full_year"] = "winter",
 ) -> ForecastResponse:
     """Run the full forecast pipeline for an API forecast request.
 
@@ -132,15 +134,24 @@ def forecast_from_request(
     Inputs:
     - request: forecast request schema with property, heat pump, DHW, and tariffs.
     - cache_dir: filesystem path where climate cache files are stored.
+    - random_seed: optional random seed for deterministic Monte Carlo draws.
+    - demand_period_mode: "winter" preserves v1 October-March behavior;
+      "full_year" evaluates complete calendar-year weather periods.
 
     Outputs:
     - forecast response schema with fitted eta, kWh percentiles, GBP percentiles,
       monthly kWh breakdown, 1000 annual kWh draws, assumptions, and warnings.
     """
     warnings = []
-    climate = load_or_fetch_climate(request.property, cache_dir, winters=20)
+    climate = load_or_fetch_climate(
+        request.property,
+        cache_dir,
+        winters=20,
+        demand_period_mode=demand_period_mode,
+    )
     t_out_c = climate["t_out_c"].to_numpy()
-    winter_index = climate["winter_id"].to_numpy()
+    period_column = "year_id" if demand_period_mode == "full_year" else "winter_id"
+    period_index = climate[period_column].to_numpy()
 
     hlc_w_per_k = derive_hlc_w_per_k(request.property)
     daily_sh_kwh = calculate_daily_space_heating_demand(
@@ -183,11 +194,11 @@ def forecast_from_request(
         cop_dhw,
     )
 
-    annual_sh_by_winter = calculate_annual_electricity_by_winter(e_sh, winter_index)
-    annual_dhw_by_winter = calculate_annual_electricity_by_winter(e_dhw, winter_index)
-    annual_total_by_winter = calculate_annual_electricity_by_winter(
+    annual_sh_by_period = calculate_annual_electricity_by_winter(e_sh, period_index)
+    annual_dhw_by_period = calculate_annual_electricity_by_winter(e_dhw, period_index)
+    annual_total_by_period = calculate_annual_electricity_by_winter(
         e_total,
-        winter_index,
+        period_index,
     )
 
     # Derive independent deterministic streams for SH, DHW, and total draws
@@ -196,24 +207,24 @@ def forecast_from_request(
     dhw_seed = random_seed + 1 if random_seed is not None else None
     total_seed = random_seed + 2 if random_seed is not None else None
     draws_sh = generate_electricity_draws(
-        annual_sh_by_winter,
+        annual_sh_by_period,
         random_seed=sh_seed,
     )
     draws_dhw = generate_electricity_draws(
-        annual_dhw_by_winter,
+        annual_dhw_by_period,
         random_seed=dhw_seed,
     )
     draws_total = generate_electricity_draws(
-        annual_total_by_winter,
+        annual_total_by_period,
         random_seed=total_seed,
     )
 
-    median_total = np.median(annual_total_by_winter)
-    median_winter_id = int(np.argmin(np.abs(annual_total_by_winter - median_total)))
-    median_winter = climate["winter_id"].to_numpy() == median_winter_id
+    median_total = np.median(annual_total_by_period)
+    median_period_id = int(np.argmin(np.abs(annual_total_by_period - median_total)))
+    median_period = period_index == median_period_id
     monthly_breakdown = [0.0] * 12
     for month in range(1, 13):
-        month_mask = median_winter & (climate["date"].dt.month.to_numpy() == month)
+        month_mask = median_period & (climate["date"].dt.month.to_numpy() == month)
         if np.any(month_mask):
             monthly_breakdown[month - 1] = float(np.sum(e_total[month_mask]))
 
