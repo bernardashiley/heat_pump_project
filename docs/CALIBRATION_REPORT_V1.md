@@ -1,4 +1,4 @@
-# Calibration of a Probabilistic UK Heat Pump Running-Cost Forecaster v1: A Pre-Registered Evaluation Against HeatpumpMonitor.org
+﻿# Calibration of a Probabilistic UK Heat Pump Running-Cost Forecaster v1: A Pre-Registered Evaluation Against HeatpumpMonitor.org
 
 **Bernard Ashiley**
 *Odwira & Whitehall*
@@ -6,9 +6,9 @@
 
 ---
 
-## Abstract
+## 1. Abstract
 
-A probabilistic forecasting model for UK heat pump annual running costs was evaluated against the HeatpumpMonitor.org open dataset under a pre-registered methodology with seven-run input ablation, three-metric validation gates, and pre-committed decision rules. On 303 eligible systems, the model's 80% prediction intervals contained the realised annual electricity in 23.8% of cases (Wilson 95% CI: 17.7–31.2%); mean absolute percentage error on the measured-input subset was 29.1%; median signed error was −29.1%. The model failed all six pre-registered evidence claims. Post-evaluation diagnostic investigation identified a structural error in the v1 demand-period definition: the model fetched climate data for October through March, computed daily demand on those days, and reported the total as annual electricity, omitting roughly half of annual heating and domestic-hot-water load. This defect was not caught by the 91-test unit suite or by reference-case checks because both tested internal consistency rather than against external annual totals. It was caught by the calibration evaluation reported here. The evaluation artefacts, the defect's mechanism, and the boundary of supportable claims are reported below. A v1.1 ablation evaluation with corrected demand period is the next planned work.
+As the UK accelerates domestic heat pump deployment, credible forecasts of annual running costs — with honest uncertainty — are material to household adoption decisions. A probabilistic forecasting model for UK heat pump annual running costs was evaluated against the HeatpumpMonitor.org open dataset under a pre-registered methodology with seven-run input ablation, three-metric validation gates, and pre-committed decision rules. On 303 eligible systems, the model's 80% prediction intervals contained the realised annual electricity in 23.8% of cases (Wilson 95% CI: 17.7–31.2%); mean absolute percentage error on the measured-input subset was 29.1%; median signed error was −29.1%. The model failed all six pre-registered evidence claims. Post-evaluation diagnostic investigation identified a structural error in the v1 demand-period definition: the model fetched climate data for October through March, computed daily demand on those days, and reported the total as annual electricity, omitting roughly half of annual heating and domestic-hot-water load. This defect was not caught by the 91-test unit suite or by reference-case checks because both tested internal consistency rather than against external annual totals. It was caught by the calibration evaluation reported here. The evaluation artefacts, the defect's mechanism, and the boundary of supportable claims are reported below. A v1.1 ablation evaluation with corrected demand period is the next planned work.
 
 ---
 
@@ -16,13 +16,13 @@ A probabilistic forecasting model for UK heat pump annual running costs was eval
 
 A v1 forecasting model was built to estimate the annual running cost of a UK domestic heat pump installation from inputs available to a pre-purchase user: the design heat loss in watts, the design outdoor temperature, the design flow temperature, the floor area, the postcode, and the heat pump's seasonal coefficient of performance (SCOP). These inputs correspond to the fields produced by the MCS heat pump design process, governed by the standard MIS 3005-D [1] and the underlying heat load methodology of BS EN 12831 [2]. The model produces a probabilistic annual electricity forecast as a 1,000-draw Monte Carlo distribution over 20 historical UK winter realisations, from which p10, p50, and p90 estimates are reported. Annual cost is derived by applying user-specified tariff scenarios to the electricity distribution.
 
-The model's intended differentiator over deterministic running-cost calculators is the calibrated 80% prediction interval. A point estimate of annual cost is of limited use to a homeowner deciding whether to install a heat pump; an interval that genuinely contains the realised cost four times out of five would support informed decision-making in a way that headline figures do not. Calibration in this sense is the central claim. A model whose 80% interval contains the realised value 24% of the time is not a probabilistic forecaster in any useful sense; it is a point estimator surrounded by uninformative error bars. The principle that interval forecasts must be evaluated on both calibration and sharpness — and that calibration must come first — is well established in the probabilistic forecasting literature [3].
+The model's intended differentiator over deterministic running-cost calculators is the calibrated 80% prediction interval. A point estimate of annual cost is of limited use to a homeowner deciding whether to install a heat pump; an interval that genuinely contains the realised cost four times out of five would support informed decision-making in a way that headline figures do not. Calibration in this sense is the central claim. A model whose 80% interval contains the realised value 24% of the time is not a probabilistic forecaster in any useful sense; it is a point estimator surrounded by uninformative error bars. The principle that interval forecasts must be evaluated on both calibration and sharpness — and that calibration must come first — is well established in the probabilistic forecasting literature [3]. The calibration-versus-sharpness paradigm and the use of the probability integral transform (PIT) to assess calibration are developed by Gneiting, Balabdaoui and Raftery [8], building on the prequential approach of Dawid [9]. On the domain side, large UK field trials have established that real-world heat pump seasonal performance factors (SPFs) vary widely and frequently fall below design expectations: the Renewable Heat Premium Payment trial of around 700 systems reported mean SPFs in the region of 2.6–2.8, depending on technology and system boundary [10], and the more recent Electrification of Heat demonstration reported comparable fleet-average figures [11]. The HeatpumpMonitor.org cohort used here, by contrast, is a self-selected sample of well-installed systems with a higher mean SPF, a distinction that bears directly on the generalisability of any evaluation against it.
 
 The calibration evaluation reported here was designed to test whether the v1 model's intervals are honest. The evaluation was pre-registered before any metric was computed, with a methodology document committed at hash `2a6d0bc` (subsequently amended at hash `6b1a3ab` for a pre-evaluation physical-validity filter on heat-loss values). Decision rules, claim-mapping constraints, and the boundary of public claims were fixed in writing before the evaluation ran. The pre-registration is documented in full at `docs/CALIBRATION_METHODOLOGY.md` in the project repository.
 
 The model code was developed by the author over the months preceding the evaluation. Reference-case tests against a published account of the Twentyman installation in Cumbria [4] (annual heat output approximately 15,000 kWh, SPF 3.28) were used during development to anchor demand magnitudes, alongside a 91-test unit suite covering individual components: the Carnot-based COP curve, the heat-loss coefficient derivation from MCS inputs, the heating-degree-day demand calculation, the domestic-hot-water demand formula, the Monte Carlo draw generation, and the tariff-to-cost conversion. All 91 tests passed at the model code commit hash recorded for the evaluation (`957dd27`).
 
-The evaluation reported here is independent of the test suite and the reference cases. It tests the model against 303 well-monitored UK heat pump installations submitted to the HeatpumpMonitor.org open dataset [5], each with at least one complete year of measured electricity and heat data and at least 90% data quality on both meters. HeatpumpMonitor.org is an OpenEnergyMonitor community initiative for sharing real-world heat pump performance data, with over 600 systems contributing at the time of evaluation; the dataset is openly available via a public API. The methodology, dataset, and evaluation script are designed to be reproducible: the dataset snapshot is committed to the project repository, the random seed is recorded in the report preamble, the climate cache is reusable across runs, and the seven-run ablation completes in approximately five minutes from a populated cache on a single workstation.
+The evaluation reported here is independent of the test suite and the reference cases. It tests the model against 303 well-monitored UK heat pump installations submitted to the HeatpumpMonitor.org open dataset [5], each with at least one complete year of measured electricity and heat data and at least 90% data quality on both meters. HeatpumpMonitor.org is an OpenEnergyMonitor community initiative for sharing real-world heat pump performance data, with 765 systems listed in the snapshot used for this evaluation; the dataset is openly available via a public API. The methodology, dataset, and evaluation script are designed to be reproducible: the dataset snapshot is regenerable from the included fetch script (see section 4 for its redistribution status), the random seed is recorded in the report preamble, the climate cache is reusable across runs, and the seven-run ablation completes in approximately five minutes from a populated cache on a single workstation.
 
 ## 3. Methodology
 
@@ -36,11 +36,11 @@ The methodology defines four research questions, a seven-run input ablation, dat
 
 
 
-The seven runs are labelled A-full, A-subset, B, C, D, E, and F. They differ along three input dimensions: the heat-loss coefficient (MCS-declared versus measured), the indoor temperature (MCS-declared or default versus measured), and the SCOP (realised SPF used as oracle versus a fixed 3.5 generic proxy). Run B isolates the demand-side model under accurate inputs: measured heat loss, measured indoor temperature, and realised SPF used as oracle SCOP. Run F is the realistic-user end-to-end run: MCS-declared heat loss, user-declared or default indoor temperature, fixed 3.5 SCOP. Runs A-full and A-subset are paired baselines. Runs C, D, and E isolate the conditional effect of substituting one input at a time.
+The seven runs are labelled A-full, A-subset, B, C, D, E, and F. They differ along three input dimensions: the heat-loss coefficient (MCS-declared versus measured), the indoor temperature (MCS-declared or default versus measured), and the SCOP (ex-post realised SPF used as a perfect-foresight input versus a fixed 3.5 generic proxy). Run B isolates the demand-side model under accurate inputs: measured heat loss, measured indoor temperature, and ex-post realised SPF used as the SCOP input. Run F is the realistic-user end-to-end run: MCS-declared heat loss, user-declared or default indoor temperature, fixed 3.5 SCOP. Runs A-full and A-subset are paired baselines. Runs C, D, and E isolate the conditional effect of substituting one input at a time.
 
 
 
-The validation gate for Run B requires all three of: coverage of the 80% interval ≥ 75%, MAPE ≤ 12%, and median interval width ≤ 50% of median realised electricity. Failure on any one of these three triggers the consequence stated in section 7.1 of the methodology: halt v1 product positioning until the failing component is investigated. Run F has a separate viability gate: coverage ≥ 60% AND MAPE ≤ 25%.
+The validation gate for Run B requires all three of: coverage of the 80% interval ≥ 75%, MAPE ≤ 12%, and median interval width ≤ 50% of median realised electricity. Failure on any one of these three triggers the consequence of methodology section 7.1: v1 model deployment is halted until the failing component is investigated. Run F has a separate viability gate: coverage ≥ 60% AND MAPE ≤ 25%.
 
 
 
@@ -68,7 +68,7 @@ where $\hat{y}_i$ is the median (p50) of the Monte Carlo predictions for case $i
 
 **Coverage** of the 80% prediction interval is the proportion of cases for which the realised value falls between the model's p10 and p90:
 
-$$\mathrm{Coverage} = \frac{1}{n} \sum_{i=1}^{n} \mathbb{1}\left[ p_{10,i} \leq y_i \leq p_{90,i} \right]$$
+$$\mathrm{Coverage} = \frac{1}{n} \sum_{i=1}^{n} \mathbb{1}(p_{10,i} \leq y_i \leq p_{90,i})$$
 
 **Median interval width** is reported as a percentage of median realised electricity:
 
@@ -76,11 +76,17 @@ $$\mathrm{Width\%} = \frac{\mathrm{median}_i(p_{90,i} - p_{10,i})}{\mathrm{media
 
 **Continuous Ranked Probability Score (CRPS)** for case $i$ is computed from the empirical CDF $F_i$ as:
 
-$$\mathrm{CRPS}(F_i, y_i) = \int_{-\infty}^{\infty} \left[ F_i(x) - \mathbb{1}_{x \geq y_i} \right]^2 \, dx$$
+$$\mathrm{CRPS}(F_i, y_i) = \int_{-\infty}^{\infty} \left[ F_i(x) - \mathbb{1}(x \geq y_i) \right]^2 \, dx$$
 
 Mean CRPS across cases is reported in kWh (the units of $y_i$). The implementation uses the `properscoring` library's `crps_ensemble` against the 1,000 retained Monte Carlo draws per case.
 
-**Wilson 95% confidence interval** for the coverage proportion uses the standard score-interval form with continuity correction omitted, as implemented in `statsmodels.stats.proportion.proportion_confint(method='wilson')`. The interval assumes independent Bernoulli trials across cases. The 303 cases are distinct geographic installations evaluated against a 20-winter typical climate; while modest spatial correlation in regional weather anomalies may exist, the use of long-run climatology rather than per-case monitoring-window weather makes the independence assumption defensible at the precision required by the validation thresholds.
+**Wilson score interval.** For a binomial proportion estimate $\hat{p} = k/n$ from $n$ Bernoulli trials, the Wilson score interval at confidence level $1 - \alpha$ (with $z$ the standard normal quantile at $1 - \alpha/2$) is:
+
+$$\hat{p}_{\mathrm{Wilson}} = \frac{\hat{p} + \frac{z^2}{2n}}{1 + \frac{z^2}{n}} \pm \frac{z}{1 + \frac{z^2}{n}} \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}}$$
+
+The Wilson interval is asymmetric in $\hat{p}$ and is appropriate for small samples and for proportions near 0 or 1, where the normal-approximation (Wald) interval performs poorly.
+
+**Wilson 95% confidence interval** for the coverage proportion uses the standard score-interval form with continuity correction omitted, computed per the score-interval formula above. The interval assumes independent Bernoulli trials across cases. The 303 cases are distinct geographic installations evaluated against a 20-winter typical climate; while modest spatial correlation in regional weather anomalies may exist, the use of long-run climatology rather than per-case monitoring-window weather makes the independence assumption defensible at the precision required by the validation thresholds.
 
 ---
 
@@ -126,12 +132,12 @@ The dataset inclusion criteria from methodology section 3.2 reduced the source s
 | MCS field outside physical range (heat_loss 0.5–50 kW) | −70 |
 | Quality elec/heat < 90% | −67 |
 | SPF null or ≤ 1.5 | 0 |
-| Cooling or immersion backup > 5% of total electricity | −15 |
+| Cooling or immersion backup > 5% of total electricity [12] | −15 |
 | **Surviving evaluation cases** | **303** |
 
 
 
-Of the 303 eligible cases, 151 are in the measured-input subset (both measured heat loss and measured indoor temperature available), and 262 are in the strict-zero cooling/immersion subset (used for the section 5.5 sensitivity analysis).
+Of the 303 eligible cases, 151 are in the measured-input subset (both measured heat loss and measured indoor temperature available), and 262 are in the strict-zero cooling/immersion subset (used for the methodology section 5.5 sensitivity analysis).
 
 
 
@@ -185,7 +191,7 @@ The seven runs produced the following aggregate metrics on the eligible set (303
 
 
 | Run | Cases | Coverage % | Wilson 95% CI | MAPE % | MdAPE % | Trimmed MAPE % | Median signed error % | Median width % | Mean CRPS |
-|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+|---|---:|---|---:|---:|---:|---:|---:|---:|
 | A-full | 303 | 39.6 | 34.3–45.2 | 26.0 | 23.4 | 24.8 | −13.7 | 31.8 | 877.6 |
 | A-subset | 151 | 41.1 | 33.5–49.0 | 26.9 | 23.1 | 25.6 | −10.4 | 32.1 | 850.0 |
 | B | 151 | 23.8 | 17.7–31.2 | 29.1 | 30.2 | 29.0 | −29.1 | 24.8 | 1044.7 |
@@ -218,7 +224,7 @@ Methodology section 2 specifies five permitted comparisons. Each comparison is a
 | B − D | −17.9 pp | ≥ 20 pp means MCS HLC substitution materially degrades accuracy | Negative delta; substitution does not degrade |
 | B − E | +2.6 pp | ≥ 15 pp means indoor-temperature substitution materially degrades accuracy | Below threshold; not supported |
 | B − C | −11.3 pp | ≥ 20 pp means fixed generic SCOP proxy is inadequate | Negative delta; proxy does not degrade |
-| F vs A-full | +7.6 pp | (Diagnostic) F is the realistic-user run, A-full is the oracle-SPF baseline | F has higher coverage than A-full |
+| F vs A-full | +7.6 pp | (Diagnostic) F is the realistic-user run, A-full is the perfect-foresight-SPF baseline | F has higher coverage than A-full |
 
 
 
@@ -234,7 +240,7 @@ The B − E delta of +2.6 pp is the one comparison where the substitution behave
 
 
 
-Methodology section 7.1 specifies a three-metric gate for Run B. The metric is the demand-side model under oracle inputs: measured HLC, measured indoor temperature, and realised SPF used as SCOP. Validation requires all three thresholds to be in the Validated band.
+Methodology section 7.1 specifies a three-metric gate for Run B, which isolates the demand-side model under perfect-foresight inputs: measured HLC, measured indoor temperature, and realised SPF used as SCOP. Validation requires all three thresholds to be in the Validated band.
 
 
 
@@ -246,7 +252,7 @@ Methodology section 7.1 specifies a three-metric gate for Run B. The metric is t
 
 
 
-Two of three metrics fall in the Inadequate band. Per the pre-committed consequence stated in section 7.1: **halt v1 product positioning until the failing component is investigated.**
+Two of three metrics fall in the Inadequate band. Per the pre-committed consequence of methodology section 7.1: **v1 model deployment is halted until the failing component is investigated.**
 
 
 
@@ -269,7 +275,7 @@ Methodology section 7.4 specifies a viability gate for Run F as the true realist
 
 
 
-Run F fails the coverage criterion of section 7.4. Per the pre-committed consequence: **the realistic-user product is not viable in its current form; calibration data must be required as a gating input.**
+Run F fails the coverage criterion of section 7.4. Per the pre-committed consequence: **the realistic-user model is not viable in its current form; calibration data must be required as a gating input.**
 
 
 
@@ -279,41 +285,35 @@ Run F is the highest-coverage run of the seven. This is not a feature of the mod
 
 ### 5.5 PIT distributions
 
+The Probability Integral Transform (PIT) distributions for the seven runs are presented in Figure 1 across 10 equal-width bins from 0 to 1. A well-calibrated probabilistic forecaster produces a flat (uniform) PIT distribution; deviation from $U(0,1)$ is the empirical fingerprint of miscalibration.
 
+![](figures/pit_distributions.png){width=100%}
 
-The Probability Integral Transform distributions for the seven runs are presented below. Each row is one run's PIT histogram across 10 equal-width bins from 0 to 1. A well-calibrated probabilistic forecaster produces a flat (uniform) PIT distribution. The Kolmogorov–Smirnov p-value against uniform is computed for each run.
+*Figure 1. PIT distributions for the seven evaluation runs, with the $U(0,1)$ uniform reference (red dashed line at 0.1). Heavy mass in the rightmost bin across all runs — most extreme for Runs B and E — is the signature of systematic underprediction by the v1 model.*
 
+The dominant feature across runs is heavy mass in the rightmost bin, the bin covering realised values above the model's 90th percentile. For Run B this bin contains 72.8% of cases; for Run E, 76.2%; for the eligible-set runs A-full and F, 42.2% and 29.0% respectively. The leftmost bin contains a smaller but non-trivial fraction in some runs (18.2% for A-full, 23.8% for F), indicating a secondary cluster of overpredicted cases. The dominant signal across every run, however, is that the model places its 90th percentile below the realised value for the majority of cases. This is the PIT signature of systematic underprediction.
 
+A one-sample Kolmogorov–Smirnov test against $U(0,1)$ returned $p < 0.0001$ for each of the seven runs. At the sample sizes available (151 for measured-input runs, 303 for eligible-set runs), the KS test is highly powered and would detect even modest departures from uniformity; the test is reported here not as evidence in its own right but as formalisation of the structural deviation that is visually obvious in Figure 1 [8, 9]. The per-run results are summarised below.
 
-| Run | KS p-value | PIT bins (0.0 to 1.0, 10 equal-width bins) |
-|---|---:|---|
-| A-full | 0.0000 | 0.182, 0.017, 0.046, 0.020, 0.030, 0.059, 0.043, 0.089, 0.092, 0.422 |
-| A-subset | 0.0000 | 0.192, 0.020, 0.053, 0.013, 0.040, 0.046, 0.053, 0.099, 0.086, 0.397 |
-| B | 0.0000 | 0.033, 0.013, 0.007, 0.007, 0.026, 0.020, 0.020, 0.066, 0.079, 0.728 |
-| C | 0.0000 | 0.093, 0.000, 0.026, 0.026, 0.026, 0.053, 0.046, 0.060, 0.113, 0.556 |
-| D | 0.0000 | 0.205, 0.060, 0.013, 0.040, 0.053, 0.020, 0.053, 0.079, 0.099, 0.377 |
-| E | 0.0000 | 0.026, 0.000, 0.007, 0.000, 0.013, 0.013, 0.033, 0.046, 0.099, 0.762 |
-| F | 0.0000 | 0.238, 0.066, 0.066, 0.020, 0.046, 0.036, 0.050, 0.092, 0.096, 0.290 |
+| Run | n | KS $p$-value |
+|---|---:|---:|---|
+| A-full | 303 | $p < 0.0001$ |
+| A-subset | 151 | $p < 0.0001$ |
+| B | 151 | $p < 0.0001$ |
+| C | 151 | $p < 0.0001$ |
+| D | 151 | $p < 0.0001$ |
+| E | 151 | $p < 0.0001$ |
+| F | 303 | $p < 0.0001$ |
 
-
-
-All seven KS p-values are reported as 0.0000 — the PIT distributions are not statistically distinguishable from uniform at any conventional significance level. The one-sample Kolmogorov–Smirnov test was applied against the uniform reference $U(0,1)$. At the sample sizes available (151 for measured-input runs, 303 for eligible-set runs), the KS test is highly powered and would detect even modest departures from uniformity. The test is reported here not as evidence in its own right but as formalisation of the structural deviation that is visually obvious in the PIT bin arrays below. The most diagnostic feature is the rightmost bin. For Run B, the PIT bin covering realised values above the model's 90th percentile contains 72.8% of cases. For Run E it is 76.2%. For the eligible-set runs (A-full, F), the rightmost bin contains 42.2% and 29.0% respectively. The leftmost bin contains a smaller but non-trivial fraction (18.2% for A-full, 23.8% for F), indicating a secondary cluster of overpredicted cases — but the dominant signal across all runs is that the model places its 90th percentile *below* the realised value for the majority of cases.
-
-
-
-This is the PIT signature of systematic underprediction.
-
-
+*Kolmogorov–Smirnov one-sample test against $U(0,1)$ for each run's PIT distribution. P-values below the reporting precision of the evaluation output are shown as $p < 0.0001$. The diagnostic conclusion is rejection of uniformity, and therefore of calibration, for every run.*
 
 ---
-
-
 
 ## 6. Pre-registered Claim Mapping Outcomes
 
 
 
-Methodology section 10 fixes a table of six allowed public claims, each tied to a specific evidence threshold. Claims not on this list are not supported by this evaluation regardless of what the numbers show. The intent is to prevent post-hoc selection of findings: whatever the results, only the pre-mapped claims may be defended publicly, and only when their evidence threshold is met.
+Methodology section 10 fixes a table of six allowed public claims, each tied to a specific evidence threshold. Claims not on this list are not supported by this evaluation regardless of what the numbers show. The intent is to prevent post-hoc selection of findings: whatever the results, only the pre-mapped claims may be defended publicly, and only when their evidence threshold is met. Terminology note: the pre-registered methodology phrases these claims and consequences using the term "product" (e.g. "product positioning"); this report renders that vocabulary as "model" and "deployment" for academic register. No substantive wording, threshold, or consequence is altered.
 
 
 
@@ -327,12 +327,12 @@ The six claims and their evidence outcomes from the evaluation reported in secti
 | 2 | MCS HLC substitution materially degrades accuracy in the measured-input subset | B − D coverage delta ≥ 20 pp | B − D = −17.9 pp | No |
 | 3 | Indoor-temperature substitution materially degrades accuracy in the measured-input subset | B − E coverage delta ≥ 15 pp | B − E = +2.6 pp | No |
 | 4 | Fixed generic SCOP proxy is inadequate | B − C coverage delta ≥ 20 pp | B − C = −11.3 pp | No |
-| 5 | Realistic-user product is viable with documented uncertainty disclosure | Run F passes section 7.4 (coverage ≥ 60% AND MAPE ≤ 25%) | Coverage 47.2%, below threshold | No |
+| 5 | Realistic-user model is viable with documented uncertainty disclosure | Run F passes section 7.4 (coverage ≥ 60% AND MAPE ≤ 25%) | Coverage 47.2%, below threshold | No |
 | 6 | Calibration data is the highest-impact v2 feature | B − A-subset coverage delta ≥ 30 pp | B − A-subset = −17.2 pp | No |
 
 
 
-None of the six pre-registered claims is supported by the evidence. The evaluation produced no publicly defensible positive claim about the v1 model's calibration, the dominant source of error in its inputs, the viability of the realistic-user product, or the priority of v2 features.
+None of the six pre-registered claims is supported by the evidence. The evaluation produced no publicly defensible positive claim about the v1 model's calibration, the dominant source of error in its inputs, the viability of the realistic-user model, or the priority of v2 features.
 
 
 
@@ -448,7 +448,7 @@ The defect is fixable. The fix requires extending the climate fetcher to return 
 
 
 
-The fix is part of the planned v1.1 evaluation reported in section 10 of this document. The v1.1 evaluation is pre-registered separately and includes the demand-period fix alongside two other planned improvements: propagation of DHW occupancy uncertainty, and required indoor-temperature input on the frontend. The three improvements are evaluated as an ablation so that each fix's individual contribution to the v1.1 metrics is attributable.
+The fix is part of the planned v1.1 evaluation reported in section 10 of this document. The v1.1 evaluation is pre-registered separately and includes the demand-period fix alongside two other planned improvements: propagation of DHW occupancy uncertainty, and required indoor-temperature input in the user interface. The three improvements are evaluated as an ablation so that each fix's individual contribution to the v1.1 metrics is attributable.
 
 
 
@@ -472,7 +472,7 @@ Before the structural defect described in section 7 was identified, three altern
 
 
 
-**Test.** System 429 was used as a diagnostic case (realised annual electricity 9,857 kWh, Run B p50 prediction 3,648 kWh, error −63.0%). The Run B configuration uses measured HLC (7,500 W/K), measured indoor temperature (22.9 °C), and realised SPF (3.49) as oracle SCOP. The model's space-heating-only electricity prediction was recomputed at three base temperatures:
+**Test.** System 429 was used as a diagnostic case (realised annual electricity 9,857 kWh, Run B p50 prediction 3,648 kWh, error −63.0%). The Run B configuration uses measured heat loss (7,500 W), measured indoor temperature (22.9 °C), and ex-post realised SPF (3.49) as the SCOP input. The model's space-heating-only electricity prediction was recomputed at three base temperatures:
 
 
 
@@ -523,7 +523,7 @@ The DHW occupancy sensitivity table is therefore not evidence that the formula i
 
 
 
-The DHW occupancy sensitivity finding is, however, a legitimate methodology section 7.8 outcome in its own right: per the methodology, MAPE movement greater than 10 percentage points across the {1, 2, 3, 4, 5} occupancy range triggers the consequence that "occupancy is critical and v1 frontend must require it." The observed MAPE movement is 11.4 percentage points. This methodology decision is recorded as a legitimate finding of the evaluation and propagates into the v1.1 ablation design as a required user input.
+The DHW occupancy sensitivity finding is, however, a legitimate methodology section 7.8 outcome in its own right: per the methodology, MAPE movement greater than 10 percentage points across the {1, 2, 3, 4, 5} occupancy range triggers the consequence that "occupancy is critical and v1 user interface must mandate it." The observed MAPE movement is 11.4 percentage points. This methodology decision is recorded as a legitimate finding of the evaluation and propagates into the v1.1 ablation design as a required user input.
 
 
 
@@ -616,7 +616,7 @@ Six negative claims are defensible because they correspond to the pre-registered
 
 | # | Defensible negative claim |
 |---|---|
-| 1 | The v1 model's demand-side performance under oracle inputs (measured HLC, measured indoor temperature, realised SPF) does not meet the pre-registered validation threshold for 80% interval calibration. |
+| 1 | The v1 model's demand-side performance under perfect-foresight inputs (measured HLC, measured indoor temperature, realised SPF) does not meet the pre-registered validation threshold for 80% interval calibration. |
 | 2 | MCS heat-loss substitution does not materially degrade accuracy in the measured-input subset; the substitution produces *better* coverage in the v1 model owing to compensating biases. |
 | 3 | Indoor-temperature substitution does not materially degrade accuracy in the measured-input subset. |
 | 4 | A fixed 3.5 SCOP proxy does not degrade accuracy relative to using realised SPF; in the v1 model the proxy produces better coverage owing to compensating biases. |
@@ -629,7 +629,7 @@ A seventh statement is defensible because the methodology section 7.8 decision r
 
 
 
-7\. The 3-occupant DHW assumption is inadequate for the typical HeatpumpMonitor.org household; a v1.1 or v2 product must elicit occupancy from the user.
+7\. The 3-occupant DHW assumption is inadequate for the typical HeatpumpMonitor.org household; subsequent model iterations must elicit occupancy from the user.
 
 
 
@@ -639,29 +639,17 @@ These seven statements exhaust what the evaluation supports being said publicly 
 
 ### 9.3 What this report does not support being said
 
+This evaluation makes no positive claim about the v1 model's predictive accuracy, the calibration of its prediction intervals, or the readiness of the realistic-user forecasting model. Nor can it identify a dominant input error source: the structural demand-period defect overrides the input-substitution effects, so no claim that heat loss, indoor temperature, or SCOP drives the error is supportable.
 
+The findings are bounded to the v1 model specified at the commit hashes in section 4. The v1.1 ablation is planned but not yet executed; section 10 describes what will be tested and under what pre-registration, not what has been found. Generalisation beyond well-monitored UK installations submitted to a community open-data platform is likewise unsupported: the HeatpumpMonitor.org population skews toward technically engaged owners of well-installed systems and is not representative of the UK heat pump fleet [10, 11]. Methodology section 6.1 fixes this boundary in writing, and this report inherits it.
 
-The report does not support any positive claim about the v1 model's predictive accuracy, the calibration of its prediction intervals, or the readiness of the realistic-user product. It does not support any claim that one input (HLC, indoor temperature, SCOP) is the dominant error source, because the structural defect dominates over all input-substitution effects.
-
-
-
-The report does not support claims about the v1.1 model, the v2 model, or any model other than the v1 specified at the commit hashes in section 4. The v1.1 ablation evaluation is planned but not yet executed; section 10 of this document describes what will be tested and under what pre-registration, not what has been found.
-
-
-
-The report does not support generalisation beyond well-monitored UK heat pump installations submitted to a community open-data platform. Methodology section 6.1 fixes this boundary in writing; this report inherits it. The HeatpumpMonitor.org population skews toward technically engaged owners of well-installed systems and is not representative of the UK heat pump fleet.
-
-
-
-The report does not support any claim that the calibration methodology itself failed, was too strict, or produced artefactual negative findings. The methodology produced the result it was designed to produce: when the model under test does not meet the pre-registered thresholds, the result is that the model does not meet them. The methodology's correct operation in producing negative findings is itself part of its value.
-
-
+Finally, the negative findings do not indicate that the calibration methodology failed or was too strict. The methodology produced the result it was designed to produce: when the model under test does not meet the pre-registered thresholds, the result is that the model does not meet them. Its correct operation in producing negative findings is part of its value.
 
 ### 9.4 Implication for the project
 
 
 
-The v1 model is withdrawn from any public-facing deployment posture. The project continues in two parallel tracks: a v1.1 implementation that addresses the structural defect alongside two other planned improvements (section 10 of this document), and a v2 methodology document that incorporates the lessons of v1 (the importance of testing against external annual totals, the value of pre-registered claim mapping in preventing post-hoc rationalisation, the necessity of bounded physical-validity filters on dataset inclusion criteria) into its design.
+The v1 model is withdrawn from deployment. The project continues in two parallel tracks: a v1.1 implementation that addresses the structural defect alongside two other planned improvements (section 10 of this document), and a v2 methodology document that incorporates the lessons of v1 (the importance of testing against external annual totals, the value of pre-registered claim mapping in preventing post-hoc rationalisation, the necessity of bounded physical-validity filters on dataset inclusion criteria) into its design.
 
 
 
@@ -697,7 +685,7 @@ V1.1 implements three changes to the v1 model, each motivated by findings report
 
 
 
-**Change 3: Indoor temperature required as user input.** The v1 model accepts a user-declared indoor temperature with a default of 21 °C when not provided. V1.1 requires indoor temperature as a mandatory user input with no default fallback. The frontend change is out of scope of the model evaluation itself; the evaluation impact is that cases where indoor temperature is unavailable in the dataset are excluded from runs that previously relied on the default.
+**Change 3: Indoor temperature required as user input.** The v1 model accepts a user-declared indoor temperature with a default of 21 °C when not provided. V1.1 requires indoor temperature as a mandatory user input with no default fallback. The user-interface change is out of scope of the model evaluation itself; the evaluation impact is that cases where indoor temperature is unavailable in the dataset are excluded from runs that previously relied on the default.
 
 
 
@@ -740,7 +728,7 @@ The ablation enables specific attribution questions:
 
 
 
-If v1.1abc passes the methodology section 7.1 validation gate on Run B (coverage ≥ 75%, MAPE ≤ 12%, median interval width ≤ 50% of median realised), the v1.1 product positioning is permitted at the level the gate authorises. If v1.1abc fails the gate, the ablation identifies which fixes contributed and which did not, providing diagnostic input for v2.
+If v1.1abc passes the methodology section 7.1 validation gate on Run B (coverage ≥ 75%, MAPE ≤ 12%, median interval width ≤ 50% of median realised), v1.1 deployment is permitted at the level the gate authorises. If v1.1abc fails the gate, the ablation identifies which fixes contributed and which did not, providing diagnostic input for v2.
 
 
 
@@ -752,7 +740,7 @@ The v1.1 evaluation is pre-registered separately. The methodology amendments nee
 
 
 
-The v1.1 methodology inherits the v1 methodology unchanged in its core structure: the same seven-run input ablation, the same dataset, the same decision thresholds, the same claim-mapping table. The amendments are scoped narrowly to the three changes above.
+The v1.1 methodology inherits the v1 methodology unchanged in its core structure: the same seven-run input ablation, the same dataset, the same decision thresholds, the same claim-mapping table. The amendments are scoped narrowly to the three changes above, plus one evaluation-metric addition: a naive-baseline CRPSS computation (see section 11.1).
 
 
 
@@ -784,11 +772,11 @@ The limitations of this evaluation are pre-registered in methodology section 6 a
 
 
 
-**Selection bias in the HeatpumpMonitor.org population.** The dataset is self-selected. Submitters skew toward technically engaged owners of well-installed systems with above-average monitoring infrastructure. The realised SPF distribution in the evaluation set may be higher than the UK fleet average. The mean realised SPF across the 303 eligible cases is approximately 3.7; external estimates of the UK fleet average vary but are generally lower. Findings from this evaluation apply specifically to well-monitored UK heat pump installations submitted to a community open-data platform and do not generalise to the UK heat pump fleet as a whole. Methodology section 6.1 fixes this boundary; the report inherits it.
+**Selection bias in the HeatpumpMonitor.org population.** The dataset is self-selected. Submitters skew toward technically engaged owners of well-installed systems with above-average monitoring infrastructure. The realised SPF distribution in the evaluation set may be higher than the UK fleet average. The mean realised SPF across the 303 eligible cases is approximately 3.7; external estimates of the UK fleet average vary but are generally lower [10, 11]. Findings from this evaluation apply specifically to well-monitored UK heat pump installations submitted to a community open-data platform and do not generalise to the UK heat pump fleet as a whole. Methodology section 6.1 fixes this boundary; the report inherits it.
 
 
 
-**DHW occupancy assumption introduces a noise floor.** The methodology fixes occupancy at 3 for the headline runs; the section 5.4 sensitivity analysis demonstrates that the assumption is responsible for approximately 11 percentage points of MAPE movement across the {1, 2, 3, 4, 5} range. For the headline run B figures, this means per-case accuracy below approximately ±10% cannot be distinguished from occupancy assumption error. Methodology section 6.2 documents this.
+**DHW occupancy assumption introduces a noise floor.** The methodology fixes occupancy at 3 for the headline runs; the methodology section 5.4 sensitivity analysis demonstrates that the assumption is responsible for approximately 11 percentage points of MAPE movement across the {1, 2, 3, 4, 5} range. For the headline run B figures, this means per-case accuracy below approximately ±10% cannot be distinguished from occupancy assumption error. Methodology section 6.2 documents this.
 
 
 
@@ -802,7 +790,7 @@ The limitations of this evaluation are pre-registered in methodology section 6 a
 
 **Confirmation bias.** The model code was developed by the author with prior exposure to the Twentyman reference case used in the test suite. The HeatpumpMonitor.org evaluation set was not used during model development. Confirmation bias cannot be excluded. Methodology section 9.5.
 
-**CRPS reported without skill-score baseline.** The CRPS values in section 5.1 are reported as absolute means in kWh and are scale-dependent. No naive baseline (e.g., dataset-mean predictor, floor-area regression) was computed for v1, so the Continuous Ranked Probability Skill Score (CRPSS) is not available. CRPS is therefore interpretable only for internal run-to-run comparison within this evaluation (e.g., Run B versus Run F), not as an absolute statement of probabilistic forecasting skill. A baseline CRPSS computation is added to the v1.1 evaluation specification.
+**CRPS reported without skill-score baseline.** The CRPS values in section 5.1 are reported as absolute means in kWh and are scale-dependent. Because this evaluation's objective is internal component ablation (for example, Run B against Run F) rather than establishing comparative predictive skill, a naive baseline (such as a dataset-mean predictor or floor-area regression) and the associated Continuous Ranked Probability Skill Score (CRPSS) were deliberately deferred to the v1.1 evaluation specification. Within this report, CRPS supports run-to-run comparison only, not absolute statements of probabilistic forecasting skill.
 
 
 
@@ -874,7 +862,7 @@ This report is authored by Bernard Ashiley and published under Odwira \& Whiteha
 
 
 
-Bernard Ashiley is a computational statistician based in London. Odwira \& Whitehall is the studio under which this work is published.
+Bernard Ashiley is a computational statistician based in London. Odwira \& Whitehall is the independent research group under which this work is published.
 
 
 
@@ -898,7 +886,7 @@ Ashiley, B. (2026). *Calibration of a Probabilistic UK Heat Pump Running-Cost Fo
 
 
 
-The complete project repository, including the model code, the methodology document, the dataset snapshot, the climate cache, the evaluation scripts, the diagnostic memo, and this report, is available at:
+The complete project repository, including the model code, the methodology document, the climate cache, the evaluation scripts, the diagnostic memo, and this report, is available at:
 
 
 
@@ -954,7 +942,7 @@ The author thanks the OpenEnergyMonitor community for maintaining the HeatpumpMo
 
 
 
-[1] Microgeneration Certification Scheme. *MIS 3005-D: Heat Pump Systems — Requirements for Contractors Undertaking the Design of Microgeneration Heat Pump Systems.* MCS, current issue. [MCS website](https://mcscertified.com/).
+[1] Microgeneration Certification Scheme. *MIS 3005-D: Heat Pump Systems — Requirements for Contractors Undertaking the Design of Microgeneration Heat Pump Systems.* MCS, current issue. https://mcscertified.com/.
 
 
 
@@ -966,19 +954,29 @@ The author thanks the OpenEnergyMonitor community for maintaining the HeatpumpMo
 
 
 
-[4] Twentyman, R. *Direct comparison: oil boiler vs air source heat pump, same house, 12 years of data.* Medium, 2024. [Article URL](https://medium.com/@robert_twentyman/direct-comparison-oil-boiler-vs-air-source-heat-pump-same-house-12-years-of-data-ff23cde27240).
+[4] Twentyman, R. *Direct comparison: oil boiler vs air source heat pump, same house, 12 years of data.* Medium, 2024. https://medium.com/@robert_twentyman/direct-comparison-oil-boiler-vs-air-source-heat-pump-same-house-12-years-of-data-ff23cde27240.
 
 
 
-[5] OpenEnergyMonitor. *HeatpumpMonitor.org Introduction.* OpenEnergyMonitor documentation. [Documentation URL](https://docs.openenergymonitor.org/heatpumpmonitor/introduction.html) (accessed June 2026).
+[5] OpenEnergyMonitor. *HeatpumpMonitor.org Introduction.* [OpenEnergyMonitor documentation](https://docs.openenergymonitor.org/) (accessed June 2026).
 
 
 
-[6] Open-Meteo. *Open-Meteo historical weather API.* [API documentation](https://open-meteo.com/en/docs/historical-weather-api) (accessed June 2026).
+[6] Open-Meteo. *Open-Meteo historical weather API.* https://open-meteo.com/en/docs/historical-weather-api (accessed June 2026).
 
 
 
 [7] Heating-degree-day calculation for UK climate: HDD15.5 fraction computed empirically from Open-Meteo historical archive data for representative UK locations included in the dataset. Computation script and result available in the project repository at `docs/V1_DIAGNOSTIC_FINDINGS.md`.
+
+[8] Gneiting, T., Balabdaoui, F. and Raftery, A. E. (2007). Probabilistic forecasts, calibration and sharpness. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*, 69(2), 243–268. https://doi.org/10.1111/j.1467-9868.2007.00587.x
+
+[9] Dawid, A. P. (1984). Present position and potential developments: some personal views. Statistical theory. The prequential approach. *Journal of the Royal Statistical Society: Series A (General)*, 147(2), 278–292. https://doi.org/10.2307/2981683
+
+[10] Lowe, R., Summerfield, A., Oikonomou, E., Love, J., Biddulph, P., Gleeson, C., Chiu, L. F. and Wingfield, J. (2017). *Final Report on Analysis of Heat Pump Data from the Renewable Heat Premium Payment (RHPP) Scheme.* RAPID-HPC, prepared for the UK Department for Business, Energy and Industrial Strategy. https://www.gov.uk/government/publications/detailed-analysis-of-data-from-heat-pumps-installed-via-the-renewable-heat-premium-payment-scheme-rhpp (accessed June 2026).
+
+[11] Energy Systems Catapult (2023). *Electrification of Heat Demonstration Project: Interim Heat Pump Performance Data Analysis Report.* Energy Systems Catapult, Birmingham. https://es.catapult.org.uk/report/electrification-of-heat-interim-heat-pump-performance-data-analysis-report/ (accessed June 2026).
+
+[12] Nordman, R. and Zottl, A. (2011). SEPEMO-Build — a European project on seasonal performance factor and monitoring for heat pump systems in the building sector. *REHVA Journal*, 2011, 56–61.
 
 
 
