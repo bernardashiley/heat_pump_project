@@ -338,6 +338,77 @@ def test_forecast_with_seed_is_deterministic(
     assert first.total.p50_kwh == second.total.p50_kwh
 
 
+def test_forecast_fixed_dhw_occupancy_mode_matches_default(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    request = _forecast_request()
+
+    default = forecast_from_request(request, cache_dir=tmp_path, random_seed=42)
+    fixed = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        dhw_occupancy_mode="fixed",
+    )
+
+    assert default.draws_kwh == fixed.draws_kwh
+    assert default.dhw.p50_kwh == fixed.dhw.p50_kwh
+    assert default.total.p50_kwh == fixed.total.p50_kwh
+
+
+def test_forecast_propagated_dhw_occupancy_is_deterministic(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_apis(respx_mock)
+    request = _forecast_request()
+
+    first = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        dhw_occupancy_mode="propagated",
+    )
+    second = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        dhw_occupancy_mode="propagated",
+    )
+
+    assert first.draws_kwh == second.draws_kwh
+    assert first.dhw.p50_kwh == second.dhw.p50_kwh
+    assert first.total.p50_kwh == second.total.p50_kwh
+
+
+def test_forecast_propagated_dhw_occupancy_widens_dhw_distribution(
+    tmp_path: Path,
+    respx_mock: respx.MockRouter,
+) -> None:
+    _mock_constant_apis(respx_mock)
+    request = _forecast_request()
+
+    fixed = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        dhw_occupancy_mode="fixed",
+    )
+    propagated = forecast_from_request(
+        request,
+        cache_dir=tmp_path,
+        random_seed=42,
+        dhw_occupancy_mode="propagated",
+    )
+
+    fixed_width = fixed.dhw.p90_kwh - fixed.dhw.p10_kwh
+    propagated_width = propagated.dhw.p90_kwh - propagated.dhw.p10_kwh
+
+    assert propagated_width > fixed_width
+
+
 def test_forecast_with_different_seeds_differ(
     tmp_path: Path,
     respx_mock: respx.MockRouter,

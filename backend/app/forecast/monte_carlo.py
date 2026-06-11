@@ -11,11 +11,12 @@ from app.forecast.demand import (
     calculate_daily_space_heating_demand,
     derive_hlc_w_per_k,
 )
-from app.models import Assumptions, ForecastRequest, ForecastResponse, KwhPercentiles
+from app.models import Assumptions, DhwInput, ForecastRequest, ForecastResponse, KwhPercentiles
 
 DEFAULT_DRAW_COUNT = 1000
 DEFAULT_RESIDUAL_SIGMA_FRACTION = 0.08
 DEFAULT_CACHE_DIR = Path("data/cache")
+OccupancyMode = Literal["fixed", "propagated"]
 
 
 def calculate_daily_electricity(
@@ -112,6 +113,42 @@ def generate_electricity_draws(
     return np.clip(sampled_winter_kwh + residual_noise_kwh, 0, None)
 
 
+def sample_occupancy_draws(
+    draw_count: int = DEFAULT_DRAW_COUNT,
+    random_seed: int | None = None,
+) -> np.ndarray:
+    """Sample DHW occupancy counts for propagated-uncertainty mode."""
+    rng = np.random.default_rng(random_seed)
+    return rng.integers(1, 6, size=draw_count)
+
+
+def generate_electricity_draws_by_occupancy(
+    annual_electricity_by_occupancy_and_period_kwh: dict[int, np.ndarray],
+    occupancy_draws: np.ndarray,
+    draw_count: int = DEFAULT_DRAW_COUNT,
+    residual_sigma_fraction: float = DEFAULT_RESIDUAL_SIGMA_FRACTION,
+    random_seed: int | None = None,
+) -> np.ndarray:
+    """Generate annual electricity draws using per-draw occupancy samples."""
+    rng = np.random.default_rng(random_seed)
+    period_count = len(next(iter(annual_electricity_by_occupancy_and_period_kwh.values())))
+    sampled_period_index = rng.integers(0, period_count, size=draw_count)
+    sampled_kwh = np.asarray(
+        [
+            annual_electricity_by_occupancy_and_period_kwh[int(occupancy)][period]
+            for occupancy, period in zip(occupancy_draws, sampled_period_index, strict=True)
+        ],
+        dtype=float,
+    )
+    residual_sigma_kwh = residual_sigma_fraction * sampled_kwh
+    residual_noise_kwh = rng.normal(
+        loc=0.0,
+        scale=residual_sigma_kwh,
+        size=draw_count,
+    )
+    return np.clip(sampled_kwh + residual_noise_kwh, 0, None)
+
+
 def _kwh_percentiles(draws_kwh: np.ndarray) -> KwhPercentiles:
     p10_kwh, p50_kwh, p90_kwh = np.percentile(draws_kwh, [10, 50, 90])
     return KwhPercentiles(
@@ -126,6 +163,7 @@ def forecast_from_request(
     cache_dir: Path = DEFAULT_CACHE_DIR,
     random_seed: int | None = None,
     demand_period_mode: Literal["winter", "full_year"] = "winter",
+    dhw_occupancy_mode: OccupancyMode = "fixed",
 ) -> ForecastResponse:
     """Run the full forecast pipeline for an API forecast request.
 
@@ -137,6 +175,8 @@ def forecast_from_request(
     - random_seed: optional random seed for deterministic Monte Carlo draws.
     - demand_period_mode: "winter" preserves v1 October-March behavior;
       "full_year" evaluates complete calendar-year weather periods.
+    - dhw_occupancy_mode: "fixed" preserves request.dhw.occupants;
+      "propagated" samples occupants from DiscreteUniform({1,2,3,4,5}).
 
     Outputs:
     - forecast response schema with fitted eta, kWh percentiles, GBP percentiles,
@@ -200,24 +240,65 @@ def forecast_from_request(
         e_total,
         period_index,
     )
+    annual_dhw_by_occupancy: dict[int, np.ndarray] = {}
+    annual_total_by_occupancy: dict[int, np.ndarray] = {}
+    if dhw_occupancy_mode == "propagated":
+        for occupants in range(1, 6):
+            dhw = DhwInput(
+                occupants=occupants,
+                cylinder_l=request.dhw.cylinder_l,
+                t_setpoint_c=request.dhw.t_setpoint_c,
+                t_flow_dhw_c=request.dhw.t_flow_dhw_c,
+            )
+            annual_dhw_for_occupants = calculate_annual_dhw_demand(dhw)
+            daily_dhw_for_occupants = np.full(len(climate), annual_dhw_for_occupants / 365)
+            _, e_dhw_for_occupants, _ = calculate_daily_electricity(
+                daily_sh_kwh,
+                daily_dhw_for_occupants,
+                cop_sh,
+                cop_dhw,
+            )
+            annual_dhw_by_occupancy[occupants] = calculate_annual_electricity_by_winter(
+                e_dhw_for_occupants,
+                period_index,
+            )
+            annual_total_by_occupancy[occupants] = (
+                annual_sh_by_period + annual_dhw_by_occupancy[occupants]
+            )
+    elif dhw_occupancy_mode != "fixed":
+        raise ValueError(f"unknown dhw_occupancy_mode: {dhw_occupancy_mode}")
 
     # Derive independent deterministic streams for SH, DHW, and total draws
     # while preserving fully random behavior when no seed is provided.
     sh_seed = random_seed
     dhw_seed = random_seed + 1 if random_seed is not None else None
     total_seed = random_seed + 2 if random_seed is not None else None
+    occupancy_seed = random_seed + 7 if random_seed is not None else None
     draws_sh = generate_electricity_draws(
         annual_sh_by_period,
         random_seed=sh_seed,
     )
-    draws_dhw = generate_electricity_draws(
-        annual_dhw_by_period,
-        random_seed=dhw_seed,
-    )
-    draws_total = generate_electricity_draws(
-        annual_total_by_period,
-        random_seed=total_seed,
-    )
+    if dhw_occupancy_mode == "propagated":
+        occupancy_draws = sample_occupancy_draws(random_seed=occupancy_seed)
+        draws_dhw = generate_electricity_draws_by_occupancy(
+            annual_dhw_by_occupancy,
+            occupancy_draws,
+            random_seed=dhw_seed,
+        )
+        draws_total = generate_electricity_draws_by_occupancy(
+            annual_total_by_occupancy,
+            occupancy_draws,
+            random_seed=total_seed,
+        )
+    else:
+        draws_dhw = generate_electricity_draws(
+            annual_dhw_by_period,
+            random_seed=dhw_seed,
+        )
+        draws_total = generate_electricity_draws(
+            annual_total_by_period,
+            random_seed=total_seed,
+        )
 
     median_total = np.median(annual_total_by_period)
     median_period_id = int(np.argmin(np.abs(annual_total_by_period - median_total)))

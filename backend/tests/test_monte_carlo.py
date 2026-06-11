@@ -5,6 +5,7 @@ from app.forecast.monte_carlo import (
     calculate_annual_electricity_by_winter,
     calculate_daily_electricity,
     generate_electricity_draws,
+    sample_occupancy_draws,
 )
 
 
@@ -130,6 +131,15 @@ def test_draws_different_seeds_different() -> None:
     )
 
     assert not np.array_equal(first, second)
+
+
+def test_occupancy_draws_are_seeded_and_within_support() -> None:
+    first = sample_occupancy_draws(draw_count=1000, random_seed=42)
+    second = sample_occupancy_draws(draw_count=1000, random_seed=42)
+
+    np.testing.assert_array_equal(first, second)
+    assert set(first).issubset({1, 2, 3, 4, 5})
+    assert set(first) == {1, 2, 3, 4, 5}
 
 
 def test_draws_mean_converges_to_population_mean() -> None:
