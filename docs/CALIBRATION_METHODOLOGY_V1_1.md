@@ -51,6 +51,8 @@ The per-case seed scheme is extended to include an occupancy sub-seed: `occupanc
 
 The user-interface change required to elicit indoor temperature in deployment is out of scope of this evaluation; this methodology specifies only the model-side change.
 
+**Magnitude of the case-set reduction.** In the 9 June 2026 HeatpumpMonitor.org snapshot at the v1 inclusion-criteria filter (303 cases), 212 cases have a high-quality measured indoor temperature (quality_roomT >= 70 with combined_roomT_mean present) and 91 cases do not. Under v1.1c and v1.1abc, the 91 cases without measured indoor temperature are excluded from Runs A-full and F. The eligible-set sizes per (configuration, run) are documented in the v1.1 calibration report; Run F under v1.1c and v1.1abc evaluates 212 cases rather than 303. Pre-registered claim 9 (v1.1abc passes the section 7.4 viability gate on Run F) is evaluated on this reduced set. The Wilson 95% CI width on a coverage estimate near 60% is approximately plus-minus 6.5 percentage points at n=212 versus plus-minus 5.5 percentage points at n=303; statistical power is reduced but not nullified. The 91 excluded cases are not lost from the evaluation; they remain in runs that do not require indoor temperature (Runs B, C, D, E retain their full measured-input subset of 151 cases, and the v1 baseline configuration evaluates all seven runs on the full case set).
+
 ---
 
 ## 3. Ablation design
